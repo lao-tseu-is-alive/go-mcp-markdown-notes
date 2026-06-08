@@ -30,6 +30,7 @@ type Note struct {
 	Tags          []string               `protobuf:"bytes,5,rep,name=tags,proto3" json:"tags,omitempty"`
 	CreatedAt     string                 `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt     string                 `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	OwnerUserId   string                 `protobuf:"bytes,8,opt,name=owner_user_id,json=ownerUserId,proto3" json:"owner_user_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -109,6 +110,13 @@ func (x *Note) GetCreatedAt() string {
 func (x *Note) GetUpdatedAt() string {
 	if x != nil {
 		return x.UpdatedAt
+	}
+	return ""
+}
+
+func (x *Note) GetOwnerUserId() string {
+	if x != nil {
+		return x.OwnerUserId
 	}
 	return ""
 }
@@ -733,7 +741,7 @@ var File_notes_v1_notes_proto protoreflect.FileDescriptor
 
 const file_notes_v1_notes_proto_rawDesc = "" +
 	"\n" +
-	"\x14notes/v1/notes.proto\x12\bnotes.v1\"\xbf\x01\n" +
+	"\x14notes/v1/notes.proto\x12\bnotes.v1\"\xe3\x01\n" +
 	"\x04Note\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12#\n" +
@@ -743,7 +751,8 @@ const file_notes_v1_notes_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x06 \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\a \x01(\tR\tupdatedAt\"~\n" +
+	"updated_at\x18\a \x01(\tR\tupdatedAt\x12\"\n" +
+	"\rowner_user_id\x18\b \x01(\tR\vownerUserId\"~\n" +
 	"\x11CreateNoteRequest\x12\x14\n" +
 	"\x05title\x18\x01 \x01(\tR\x05title\x12#\n" +
 	"\rbody_markdown\x18\x02 \x01(\tR\fbodyMarkdown\x12\x1a\n" +

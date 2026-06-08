@@ -1,0 +1,13 @@
+# 1. Create the GitHub repo with gh
+gh repo create lao-tseu-is-alive/go-mcp-markdown-notes --public --clone
+mv go-mcp-markdown-notes ..
+
+# 2. Run the bootstrap into the cloned repo
+./scripts/bootstrap_project.sh \
+  --name "go-mcp-markdown-notes" \
+  --module "github.com/lao-tseu-is-alive/go-mcp-markdown-notes" \
+  --target-dir "../go-mcp-markdown-notes" \
+  --binaries "notes-server,notes-client,notes-mcp" \
+  --packages "notes,authadapter,mcpnotes,version" \
+  --proto-package "notes/v1" \
+  --db-schema "go_mcp_notes_db_schema"

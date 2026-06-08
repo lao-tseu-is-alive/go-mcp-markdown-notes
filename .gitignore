@@ -1,0 +1,34 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Coverage output
+.coverage.out
+/coverage.out
+/coverage-all.out
+/coverage.txt
+
+# Environment files (secrets!)
+/.env
+/.env_testing
+/.env-testing-export
+/.env_for_github.txt
+
+# IDE
+.idea
+.vscode
+
+# Dependencies
+# vendor/
+
+# Generated / build
+/bin/
+proto_third_party/*
+**/node_modules
+/openapitools.json

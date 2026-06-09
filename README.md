@@ -74,6 +74,32 @@ bun run dev
 
 ---
 
+## Connect CLI Client
+
+The repository includes a Go command-line tool `notes-client` under `cmd/notes-client/` to execute all RPC operations directly from your terminal.
+
+### Quick Start:
+1. Compile the CLI tool:
+   ```bash
+   go build -o bin/notes-client ./cmd/notes-client
+   ```
+2. Configure authentication (e.g. using the local dev token):
+   ```bash
+   export NOTES_TOKEN=notes-dev-token
+   ```
+3. Run CLI commands:
+   ```bash
+   # List notes
+   bin/notes-client list
+
+   # Create a note
+   bin/notes-client create -title "Hello" -body "Content" -category "general" -tags "cli,demo"
+   ```
+
+For advanced configuration, server authentication modes (dev vs jwt), and automation scripting guide, see the dedicated [notes-client guide](file:///home/cgil/cgdev/golang/go-mcp-markdown-notes/cmd/notes-client/README.md).
+
+---
+
 ## Project Structure
 
 ```text

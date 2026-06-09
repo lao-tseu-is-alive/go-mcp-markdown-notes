@@ -30,8 +30,12 @@ MAKEFLAGS += --silent
 
 .PHONY: run
 ## run:	will run the main server binary [DEFAULT RULE]
+.PHONY: run-server
+## run-server:	will run notes-server
+run-server: run
+
 run: mod-download
-	go run $(LDFLAGS) cmd/$(APP_EXECUTABLE)/main.go
+	go run $(LDFLAGS) ./cmd/$(APP_EXECUTABLE)
 
 .PHONY: mod-download
 mod-download:
@@ -42,7 +46,7 @@ mod-download:
 ## build:	will compile the main server binary and place it in the bin sub-folder
 build: clean mod-download test
 	@echo "  >  Building your app binary inside bin directory..."
-	CGO_ENABLED=0 go build ${LDFLAGS} -a -o bin/$(APP_EXECUTABLE) cmd/$(APP_EXECUTABLE)/main.go
+	CGO_ENABLED=0 go build ${LDFLAGS} -a -o bin/$(APP_EXECUTABLE) ./cmd/$(APP_EXECUTABLE)
 
 .PHONY: generate
 ## generate:	will run buf generate to generate protobuf/connect code
@@ -120,3 +124,18 @@ run-notes-client:
 ## run-notes-mcp:	will run the notes-mcp binary
 run-notes-mcp:
 	go run cmd/notes-mcp/main.go $(ARGS)
+
+.PHONY: db-status
+## db-status:	show dbmate migration status
+db-status:
+	cd cmd/notes-server && dbmate --env-file ../../.env status
+
+.PHONY: db-up
+## db-up:	apply pending dbmate migrations
+db-up:
+	cd cmd/notes-server && dbmate --env-file ../../.env up
+
+.PHONY: db-down
+## db-down:	roll back the latest dbmate migration
+db-down:
+	cd cmd/notes-server && dbmate --env-file ../../.env down

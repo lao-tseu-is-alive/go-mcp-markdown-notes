@@ -1,3 +1,4 @@
+// Package version provides the version functionality for go-mcp-markdown-notes.
 package version
 
 var (
@@ -27,7 +28,7 @@ var (
 	Repository = "github.com/lao-tseu-is-alive/go-mcp-markdown-notes"
 
 	// Version starting point
-	Version = "0.0.1"
+	Version = "0.0.2"
 
 	// Revision is auto-filled by build (do not edit manually)
 	Revision = "unknown"

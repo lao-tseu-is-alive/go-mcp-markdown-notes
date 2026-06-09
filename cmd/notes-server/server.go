@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"embed"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"net"
 	"net/http"
@@ -19,6 +21,9 @@ import (
 	"github.com/lao-tseu-is-alive/go-mcp-markdown-notes/pkg/notes"
 	"github.com/lao-tseu-is-alive/go-mcp-markdown-notes/pkg/version"
 )
+
+//go:embed notesFront/dist/*
+var frontendFiles embed.FS
 
 type application struct {
 	pool    *pgxpool.Pool
@@ -74,12 +79,45 @@ func newApplication(ctx context.Context, config serverConfig, log *slog.Logger) 
 	mux.HandleFunc("GET /readiness", readinessHandler(pool))
 	mux.HandleFunc("GET /goAppInfo", appInfoHandler)
 
+	// Serve embedded frontend (SPA fallback to index.html)
+	frontendFS, err := fs.Sub(frontendFiles, "notesFront/dist")
+	if err != nil {
+		return nil, fmt.Errorf("sub-filesystem for frontend: %w", err)
+	}
+	fileServer := http.FileServer(http.FS(frontendFS))
+	mux.Handle("/", spaHandler(fileServer, frontendFS))
+
 	cleanup = false
 	return &application{
 		pool:    pool,
 		handler: recoverMiddleware(log, requestLogMiddleware(log, mux)),
 		log:     log,
 	}, nil
+}
+
+func spaHandler(fileServer http.Handler, frontendFS fs.FS) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		if path == "/" {
+			fileServer.ServeHTTP(w, r)
+			return
+		}
+
+		// Strip leading slash
+		name := path[1:]
+
+		// Check if file exists in embedded FS
+		_, err := fs.Stat(frontendFS, name)
+		if err == nil {
+			// File exists, serve it
+			fileServer.ServeHTTP(w, r)
+			return
+		}
+
+		// File does not exist, serve index.html (fallback)
+		r.URL.Path = "/"
+		fileServer.ServeHTTP(w, r)
+	}
 }
 
 func buildTokenVerifier(config serverConfig, log *slog.Logger) (authadapter.TokenVerifier, error) {

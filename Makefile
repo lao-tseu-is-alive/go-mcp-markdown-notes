@@ -34,7 +34,12 @@ MAKEFLAGS += --silent
 ## run-server:	will run notes-server
 run-server: run
 
-run: mod-download
+.PHONY: build-frontend
+build-frontend:
+	@echo "  >  Building frontend assets using Bun..."
+	cd cmd/notes-server/notesFront && bun run build
+
+run: build-frontend mod-download
 	go run $(LDFLAGS) ./cmd/$(APP_EXECUTABLE)
 
 .PHONY: mod-download
@@ -44,7 +49,7 @@ mod-download:
 
 .PHONY: build
 ## build:	will compile the main server binary and place it in the bin sub-folder
-build: clean mod-download test
+build: clean build-frontend mod-download test
 	@echo "  >  Building your app binary inside bin directory..."
 	CGO_ENABLED=0 go build ${LDFLAGS} -a -o bin/$(APP_EXECUTABLE) ./cmd/$(APP_EXECUTABLE)
 

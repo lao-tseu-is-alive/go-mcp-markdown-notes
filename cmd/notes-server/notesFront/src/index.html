@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Connect RPC Notes Client - Test & Demo</title>
+    <!-- Premium Outfit Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-primary: #090d16;
+            --bg-secondary: #111827;
+            --accent-purple: #a855f7;
+            --accent-blue: #3b82f6;
+            --accent-pink: #ec4899;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --glass-bg: rgba(17, 24, 39, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --shadow-glow: 0 0 30px rgba(168, 85, 247, 0.15);
+            --font-sans: 'Outfit', sans-serif;
+            --font-mono: 'Fira Code', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background-color: var(--bg-primary);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 2rem;
+            background-image: 
+                radial-gradient(circle at 5% 10%, rgba(168, 85, 247, 0.15) 0%, transparent 35%),
+                radial-gradient(circle at 95% 90%, rgba(59, 130, 246, 0.15) 0%, transparent 35%);
+            background-attachment: fixed;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2rem;
+        }
+
+        @media (min-width: 1024px) {
+            .container {
+                grid-template-columns: 1.2fr 0.8fr;
+            }
+            .header-row {
+                grid-column: span 2;
+            }
+        }
+
+        .header-row {
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #c084fc 0%, #6366f1 50%, #60a5fa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.025em;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            font-weight: 300;
+        }
+
+        /* Card Section Styles */
+        .card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2), var(--shadow-glow);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3), 0 0 35px rgba(168, 85, 247, 0.2);
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #d8b4fe;
+            margin-bottom: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 0.75rem;
+        }
+
+        /* Form Controls */
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-group.row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            color: var(--text-main);
+            font-family: var(--font-sans);
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+        }
+
+        input[type="text"]:focus,
+        input[type="number"]:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--accent-purple);
+            box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.25);
+            background: rgba(15, 23, 42, 0.8);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        /* Buttons */
+        button {
+            font-family: var(--font-sans);
+            font-size: 0.95rem;
+            font-weight: 600;
+            padding: 0.75rem 1.5rem;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            color: #ffffff;
+        }
+
+        button:active {
+            transform: scale(0.97);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-purple) 0%, #7c3aed 100%);
+        }
+        .btn-primary:hover {
+            box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
+            filter: brightness(1.1);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-main);
+        }
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        .btn-accent {
+            background: linear-gradient(135deg, var(--accent-blue) 0%, #2563eb 100%);
+        }
+        .btn-accent:hover {
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
+            filter: brightness(1.1);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, var(--accent-red) 0%, #dc2626 100%);
+        }
+        .btn-danger:hover {
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
+        }
+
+        /* Status Badge */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.35rem 0.85rem;
+            border-radius: 9999px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--accent-red);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .status-badge.connected {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--accent-green);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: currentColor;
+            box-shadow: 0 0 8px currentColor;
+        }
+
+        /* Auth Config UI */
+        .auth-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .user-details {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            padding: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 0.9rem;
+        }
+
+        .user-details-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+        .user-details-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .user-label {
+            color: var(--text-muted);
+        }
+
+        .user-value {
+            font-weight: 500;
+        }
+
+        /* Tabs Interface */
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+        }
+
+        .tab {
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            transition: all 0.2s ease;
+        }
+
+        .tab:hover {
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .tab.active {
+            color: #ffffff;
+            background: rgba(168, 85, 247, 0.15);
+            border: 1px solid rgba(168, 85, 247, 0.3);
+        }
+
+        .tab-panel {
+            display: none;
+        }
+
+        .tab-panel.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Notes Grid / Display */
+        .notes-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            margin-top: 1rem;
+            max-height: 550px;
+            overflow-y: auto;
+            padding-right: 0.5rem;
+        }
+
+        .note-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 1.25rem;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .note-card:hover {
+            background: rgba(255, 255, 255, 0.04);
+            border-color: rgba(168, 85, 247, 0.3);
+            transform: translateX(3px);
+        }
+
+        .note-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.5rem;
+            gap: 1rem;
+        }
+
+        .note-title-line {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .note-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #f3f4f6;
+        }
+
+        .note-category {
+            font-size: 0.75rem;
+            background: rgba(59, 130, 246, 0.15);
+            color: #93c5fd;
+            padding: 0.15rem 0.5rem;
+            border-radius: 6px;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            font-weight: 500;
+        }
+
+        .note-id {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            text-decoration: underline dotted;
+        }
+
+        .note-id:hover {
+            color: var(--accent-purple);
+        }
+
+        .note-body {
+            font-size: 0.9rem;
+            color: #d1d5db;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            margin-bottom: 1rem;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 0.75rem;
+            border-radius: 6px;
+            border-left: 3px solid var(--accent-purple);
+        }
+
+        .note-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .note-tags {
+            display: flex;
+            gap: 0.35rem;
+            flex-wrap: wrap;
+        }
+
+        .tag-pill {
+            font-size: 0.7rem;
+            background: rgba(168, 85, 247, 0.15);
+            color: #d8b4fe;
+            padding: 0.1rem 0.4rem;
+            border-radius: 4px;
+            border: 1px solid rgba(168, 85, 247, 0.3);
+        }
+
+        .note-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn-icon {
+            padding: 0.35rem 0.75rem;
+            font-size: 0.8rem;
+            border-radius: 6px;
+            font-weight: 500;
+        }
+
+        /* Debug Console */
+        .console-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .console-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 0.5rem;
+        }
+
+        .clear-link {
+            cursor: pointer;
+            text-decoration: underline;
+            color: var(--accent-purple);
+        }
+        .clear-link:hover {
+            color: #c084fc;
+        }
+
+        .console-output {
+            background: #030712;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 1rem;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: #38bdf8;
+            height: 480px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.8);
+        }
+
+        .console-entry {
+            margin-bottom: 1.5rem;
+            border-bottom: 1px dashed rgba(255, 255, 255, 0.05);
+            padding-bottom: 1rem;
+        }
+
+        .console-entry:last-child {
+            margin-bottom: 0;
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .console-req-header {
+            color: #ec4899;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .console-resp-header {
+            color: #10b981;
+            font-weight: 600;
+            margin-top: 0.5rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .console-data {
+            color: #e5e7eb;
+            background: rgba(255, 255, 255, 0.02);
+            padding: 0.5rem;
+            border-radius: 6px;
+            margin-top: 0.25rem;
+            display: block;
+            overflow-x: auto;
+        }
+
+        /* Notifications Alert */
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            padding: 1rem 1.5rem;
+            border-radius: 10px;
+            font-weight: 500;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .toast-success {
+            background: rgba(16, 185, 129, 0.95);
+            border: 1px solid rgba(16, 185, 129, 0.5);
+            color: white;
+        }
+
+        .toast-error {
+            background: rgba(239, 68, 68, 0.95);
+            border: 1px solid rgba(239, 68, 68, 0.5);
+            color: white;
+        }
+
+        .toast-info {
+            background: rgba(59, 130, 246, 0.95);
+            border: 1px solid rgba(59, 130, 246, 0.5);
+            color: white;
+        }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.1);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 99px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- HEADER -->
+        <div class="header-row">
+            <h1>📝 Markdown Notes Connect Client</h1>
+            <p class="subtitle">Interactive Test Console for Notes service using Connect RPC Protocol</p>
+        </div>
+
+        <!-- LEFT COLUMN: CONTROLS & VIEWER -->
+        <div style="display: flex; flex-direction: column; gap: 2rem;">
+            <!-- AUTHENTICATION CARD -->
+            <div class="card">
+                <div class="card-title">
+                    <span>🔐 Authentication Setup</span>
+                    <span style="flex-grow: 1;"></span>
+                    <div id="auth-status" class="status-badge">
+                        <span class="status-dot"></span>
+                        <span id="auth-status-text">Not Connected</span>
+                    </div>
+                </div>
+
+                <div class="auth-container">
+                    <div class="tabs">
+                        <div class="tab active" data-auth-tab="dev">Local Dev Mode</div>
+                        <div class="tab" data-auth-tab="jwt">JWT Token Mode</div>
+                    </div>
+
+                    <!-- Dev Token Panel -->
+                    <div class="tab-panel active" id="auth-panel-dev">
+                        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+                            Dev mode uses a predefined token recognized by the notes-server. The server decodes it to match the details specified in its config.
+                        </p>
+                        <div class="form-group">
+                            <label for="dev-token-input">Local Dev Token</label>
+                            <input type="text" id="dev-token-input" value="notes-dev-token" placeholder="Enter dev token" />
+                        </div>
+                        <div style="display: flex; gap: 1rem;">
+                            <button id="btn-login-dev" class="btn-primary" style="flex-grow: 1;">Use Dev Token</button>
+                            <button id="btn-logout-dev" class="btn-secondary" style="display: none;">Logout</button>
+                        </div>
+                    </div>
+
+                    <!-- JWT Token Panel -->
+                    <div class="tab-panel" id="auth-panel-jwt">
+                        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+                            JWT mode validates bearer tokens against your OAuth Auth server. Log in to the auth server and paste your JWT token here.
+                        </p>
+                        <div class="form-group">
+                            <label for="jwt-token-input">JWT Bearer Token</label>
+                            <input type="text" id="jwt-token-input" placeholder="eyJhbGciOi..." />
+                        </div>
+                        <div style="display: flex; gap: 1rem; align-items: center;">
+                            <button id="btn-login-jwt" class="btn-accent" style="flex-grow: 1;">Apply JWT</button>
+                            <button id="btn-logout-jwt" class="btn-secondary" style="display: none;">Logout</button>
+                            <a id="lnk-auth-server" href="http://localhost:9090" target="_blank" class="btn-secondary" style="text-decoration: none; padding: 0.75rem 1rem;">Go to Auth Server</a>
+                        </div>
+                    </div>
+
+                    <!-- Decoded User Profile Info -->
+                    <div id="user-profile-card" class="user-details" style="display: none; margin-top: 0.5rem;">
+                        <div class="user-details-row">
+                            <span class="user-label">Logged In User:</span>
+                            <span class="user-value" id="profile-name">-</span>
+                        </div>
+                        <div class="user-details-row">
+                            <span class="user-label">Email:</span>
+                            <span class="user-value" id="profile-email">-</span>
+                        </div>
+                        <div class="user-details-row">
+                            <span class="user-label">User ID (DB):</span>
+                            <span class="user-value" id="profile-id" style="font-family: var(--font-mono); font-size: 0.85rem;">-</span>
+                        </div>
+                        <div class="user-details-row">
+                            <span class="user-label">Scopes:</span>
+                            <span class="user-value" id="profile-scopes" style="font-size: 0.75rem; background: rgba(168, 85, 247, 0.2); padding: 0.15rem 0.4rem; border-radius: 4px; color: #d8b4fe;">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- OPERATIONS CARD -->
+            <div class="card">
+                <div class="card-title">
+                    <span>⚡ RPC Operations</span>
+                </div>
+
+                <div class="tabs">
+                    <div class="tab active" data-op-tab="create">Create Note</div>
+                    <div class="tab" data-op-tab="list">List Notes</div>
+                    <div class="tab" data-op-tab="search">Search</div>
+                    <div class="tab" data-op-tab="update" id="tab-update-toggle" style="display: none;">Update Note</div>
+                </div>
+
+                <!-- Create Note Panel -->
+                <div class="tab-panel active" id="op-panel-create">
+                    <form id="create-note-form" onsubmit="return false;">
+                        <div class="form-group">
+                            <label for="create-title">Title</label>
+                            <input type="text" id="create-title" placeholder="e.g. Docker Deployment Guide" required />
+                        </div>
+                        <div class="form-group row">
+                            <div>
+                                <label for="create-category">Category</label>
+                                <input type="text" id="create-category" placeholder="e.g. devops" />
+                            </div>
+                            <div>
+                                <label for="create-tags">Tags (comma separated)</label>
+                                <input type="text" id="create-tags" placeholder="e.g. docker, server, tutorial" />
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="create-body">Body (Markdown)</label>
+                            <textarea id="create-body" placeholder="# Title&#10;Write note content here..." required></textarea>
+                        </div>
+                        <button type="submit" id="btn-submit-create" class="btn-primary" style="width: 100%;">
+                            Create Note (CreateNote RPC)
+                        </button>
+                    </form>
+                </div>
+
+                <!-- List Notes Panel -->
+                <div class="tab-panel" id="op-panel-list">
+                    <div class="form-group">
+                        <label for="list-limit">Limit (max notes to retrieve)</label>
+                        <input type="number" id="list-limit" value="10" min="1" max="100" />
+                    </div>
+                    <button id="btn-submit-list" class="btn-primary" style="width: 100%;">
+                        Fetch Notes (ListRecentNotes RPC)
+                    </button>
+                </div>
+
+                <!-- Search Panel -->
+                <div class="tab-panel" id="op-panel-search">
+                    <form id="search-note-form" onsubmit="return false;">
+                        <div class="form-group">
+                            <label for="search-query">Text Query</label>
+                            <input type="text" id="search-query" placeholder="Search title or body..." />
+                        </div>
+                        <div class="form-group row">
+                            <div>
+                                <label for="search-category">Category</label>
+                                <input type="text" id="search-category" placeholder="e.g. devops" />
+                            </div>
+                            <div>
+                                <label for="search-tags">Tags (comma separated)</label>
+                                <input type="text" id="search-tags" placeholder="e.g. docker, server" />
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="search-limit">Limit</label>
+                            <input type="number" id="search-limit" value="10" min="1" max="100" />
+                        </div>
+                        <button type="submit" id="btn-submit-search" class="btn-primary" style="width: 100%;">
+                            Execute Search (SearchNotes RPC)
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Update Note Panel (Hidden initially until Edit is clicked) -->
+                <div class="tab-panel" id="op-panel-update">
+                    <form id="update-note-form" onsubmit="return false;">
+                        <input type="hidden" id="update-id" />
+                        <div class="form-group">
+                            <label for="update-title">Title</label>
+                            <input type="text" id="update-title" required />
+                        </div>
+                        <div class="form-group row">
+                            <div>
+                                <label for="update-category">Category</label>
+                                <input type="text" id="update-category" />
+                            </div>
+                            <div>
+                                <label for="update-tags">Tags (comma separated)</label>
+                                <input type="text" id="update-tags" />
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="update-body">Body (Markdown)</label>
+                            <textarea id="update-body" required></textarea>
+                        </div>
+                        <div style="display: flex; gap: 1rem;">
+                            <button type="submit" id="btn-submit-update" class="btn-primary" style="flex-grow: 1;">
+                                Save Changes (UpdateNote RPC)
+                            </button>
+                            <button type="button" id="btn-cancel-update" class="btn-secondary">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- NOTES DISPLAY CARD -->
+            <div class="card" style="flex-grow: 1;">
+                <div class="card-title">
+                    <span>📋 Notes Database View</span>
+                    <span style="flex-grow: 1;"></span>
+                    <span id="notes-count" style="font-size: 0.8rem; background: rgba(255,255,255,0.05); padding: 0.25rem 0.6rem; border-radius: 6px; color: var(--text-muted);">0 notes loaded</span>
+                </div>
+                <div id="notes-container" class="notes-list">
+                    <div style="text-align: center; color: var(--text-muted); padding: 3rem 0;">
+                        <span style="font-size: 2.5rem; display: block; margin-bottom: 0.5rem;">📂</span>
+                        No notes fetched yet. Click "Fetch Notes" or run a search.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN: DEBUG CONSOLE -->
+        <div class="card">
+            <div class="console-container">
+                <div class="console-header">
+                    <span>💻 CONNECT PROTOCOL DEBUGGER</span>
+                    <span class="clear-link" id="btn-clear-console">Clear Console</span>
+                </div>
+                <div class="console-output" id="debug-output">Connected debugger. Operations logs will appear here...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="toast-notification" class="toast">
+        <span id="toast-message">Notification message</span>
+    </div>
+
+    <!-- Bundled script target -->
+    <script type="module" src="./main.js"></script>
+</body>
+</html>

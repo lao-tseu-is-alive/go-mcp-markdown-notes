@@ -1,0 +1,17 @@
+{
+  "name": "notes-front",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun build src/main.ts --outdir dist --watch",
+    "build": "bun run build.ts",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}

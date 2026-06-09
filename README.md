@@ -83,9 +83,13 @@ The repository includes a Go command-line tool `notes-client` under `cmd/notes-c
    ```bash
    go build -o bin/notes-client ./cmd/notes-client
    ```
-2. Configure authentication (e.g. using the local dev token):
+2. Configure authentication (either dev token, or programmatically fetching a JWT token):
    ```bash
+   # For Local Dev Mode
    export NOTES_TOKEN=notes-dev-token
+
+   # For JWT Mode (fetches from auth server running on port 9090)
+   export NOTES_TOKEN=$(./scripts/get_jwt_token.sh /home/cgil/cgdev/golang/go-cloud-k8s-auth/.env)
    ```
 3. Run CLI commands:
    ```bash

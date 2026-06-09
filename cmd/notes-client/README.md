@@ -41,14 +41,24 @@ In JWT mode, the notes-server verifies tokens issued by the `go-cloud-k8s-auth` 
    make run
    ```
 2. **Obtain the JWT token** from the auth server:
-   - Navigate to the auth portal at **`http://localhost:9090/`**.
-   - Authenticate (e.g., click GitHub login).
-   - Once redirected back, scroll down to the **CONSOLE DE DEBUG & RÉPONSES API** and copy the long `"jwt"` string value from the JSON response.
-   - Alternatively, open your browser's Developer Tools (F12) -> Console, and type `localStorage.getItem("goJWT_token")` to print it.
-3. **Configure the client** in your shell using the copied token:
-   ```bash
-   export NOTES_TOKEN="eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ..."
-   ```
+   * **Option 1: Programmatic Shell Login (Recommended / Pure CLI)**
+     Use the built-in helper script to fetch and export a valid JWT token dynamically from the running auth server (port 9090). Pass the path to your auth server's `.env` file containing the admin credentials:
+     ```bash
+     export NOTES_TOKEN=$(./scripts/get_jwt_token.sh /home/cgil/cgdev/golang/go-cloud-k8s-auth/.env)
+     ```
+   * **Option 2: Copy from Browser Portal**
+     - Navigate to the auth portal at **`http://localhost:9090/`**.
+     - Authenticate (e.g., click GitHub login).
+     - Once redirected back, scroll down to the **CONSOLE DE DEBUG & RÉPONSES API** at the bottom of the page and copy the long `"jwt"` string value from the JSON response.
+   * **Option 3: Retrieve from Developer Tools**
+     Open your browser's Developer Tools (F12) on `http://localhost:9090/`, go to the Console, and run:
+     ```javascript
+     localStorage.getItem("goJWT_token")
+     ```
+     Copy the output and export it:
+     ```bash
+     export NOTES_TOKEN="eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ..."
+     ```
 
 ---
 

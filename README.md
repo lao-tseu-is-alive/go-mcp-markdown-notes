@@ -154,11 +154,26 @@ Connect API with a bearer token. Implementation: `pkg/mcpnotes/` (built on
 ```bash
 make build-mcp          # produces bin/notes-mcp
 
-claude mcp add notes \
+claude mcp add --scope user notes \
   -e NOTES_SERVER=http://127.0.0.1:8080 \
   -e NOTES_TOKEN=pat_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
   -- /path/to/go-mcp-markdown-notes/bin/notes-mcp
 ```
+
+Good to know:
+
+- **Scope matters.** Without `--scope`, `claude mcp add` registers the server
+  with `local` scope: it is only visible to Claude Code sessions started from
+  the current directory. `--scope user` makes it available in every session
+  (recommended for personal notes); `--scope project` writes a shareable
+  `.mcp.json` into the repo instead.
+- **MCP servers are loaded at session startup.** After adding, removing or
+  rotating a token, restart Claude Code (or open a new session) for the change
+  to take effect. Check with the `/mcp` command inside a session.
+- **Runtime prerequisites.** The `notes` tools need `notes-server` running on
+  `NOTES_SERVER` (and, in jwt mode, the go-cloud-k8s-auth server reachable to
+  introspect the PAT). A connection error from the tools usually just means
+  those servers are not started.
 
 Claude Desktop (`claude_desktop_config.json`):
 ```json

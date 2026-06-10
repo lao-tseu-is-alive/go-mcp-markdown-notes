@@ -53,6 +53,17 @@ build: clean build-frontend mod-download test
 	@echo "  >  Building your app binary inside bin directory..."
 	CGO_ENABLED=0 go build ${LDFLAGS} -a -o bin/$(APP_EXECUTABLE) ./cmd/$(APP_EXECUTABLE)
 
+.PHONY: build-mcp
+## build-mcp:	will compile the notes-mcp stdio binary into bin/notes-mcp
+build-mcp: mod-download
+	@echo "  >  Building notes-mcp binary inside bin directory..."
+	CGO_ENABLED=0 go build ${LDFLAGS} -o bin/notes-mcp ./cmd/notes-mcp
+
+.PHONY: run-mcp
+## run-mcp:	will run notes-mcp over stdio (requires NOTES_TOKEN, optional NOTES_SERVER)
+run-mcp: mod-download
+	go run $(LDFLAGS) ./cmd/notes-mcp
+
 .PHONY: generate
 ## generate:	will run buf generate to generate protobuf/connect code
 generate:

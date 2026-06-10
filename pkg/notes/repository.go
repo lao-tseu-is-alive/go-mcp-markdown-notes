@@ -15,4 +15,5 @@ type Repository interface {
 	SearchNotes(ctx context.Context, ownerUserID int64, filter SearchFilter) ([]*Note, error)
 	AddTags(ctx context.Context, ownerUserID int64, noteID uuid.UUID, tags []string) (*Note, error)
 	UpdateNote(ctx context.Context, ownerUserID int64, noteID uuid.UUID, input UpdateNoteInput) (*Note, error)
+	DeleteNote(ctx context.Context, ownerUserID int64, noteID uuid.UUID) error
 }

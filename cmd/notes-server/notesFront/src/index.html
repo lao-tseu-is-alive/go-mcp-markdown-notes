@@ -596,13 +596,20 @@
                 </div>
 
                 <div class="auth-container">
-                    <div class="tabs">
-                        <div class="tab active" data-auth-tab="dev">Local Dev Mode</div>
-                        <div class="tab" data-auth-tab="jwt">JWT Token Mode</div>
+                    <!-- SSO Panel (shown when the server runs in jwt mode) -->
+                    <div id="auth-panel-sso" style="display: none;">
+                        <p id="sso-hint" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+                            Sign in with your Google or GitHub account. You will be redirected to the auth service and back.
+                        </p>
+                        <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                            <button id="btn-sign-in" class="btn-primary" style="flex-grow: 1;">Sign in with Google / GitHub</button>
+                            <button id="btn-sign-out" class="btn-secondary" style="display: none;">Sign out</button>
+                            <a id="lnk-manage-tokens" href="#" target="_blank" class="btn-secondary" style="display: none; text-decoration: none; padding: 0.75rem 1rem;">Manage MCP tokens</a>
+                        </div>
                     </div>
 
-                    <!-- Dev Token Panel -->
-                    <div class="tab-panel active" id="auth-panel-dev">
+                    <!-- Dev Token Panel (shown when the server runs in dev mode) -->
+                    <div id="auth-panel-dev" style="display: none;">
                         <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
                             Dev mode uses a predefined token recognized by the notes-server. The server decodes it to match the details specified in its config.
                         </p>
@@ -613,22 +620,6 @@
                         <div style="display: flex; gap: 1rem;">
                             <button id="btn-login-dev" class="btn-primary" style="flex-grow: 1;">Use Dev Token</button>
                             <button id="btn-logout-dev" class="btn-secondary" style="display: none;">Logout</button>
-                        </div>
-                    </div>
-
-                    <!-- JWT Token Panel -->
-                    <div class="tab-panel" id="auth-panel-jwt">
-                        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
-                            JWT mode validates bearer tokens against your OAuth Auth server. Log in to the auth server and paste your JWT token here.
-                        </p>
-                        <div class="form-group">
-                            <label for="jwt-token-input">JWT Bearer Token</label>
-                            <input type="text" id="jwt-token-input" placeholder="eyJhbGciOi..." />
-                        </div>
-                        <div style="display: flex; gap: 1rem; align-items: center;">
-                            <button id="btn-login-jwt" class="btn-accent" style="flex-grow: 1;">Apply JWT</button>
-                            <button id="btn-logout-jwt" class="btn-secondary" style="display: none;">Logout</button>
-                            <a id="lnk-auth-server" href="http://localhost:9090" target="_blank" class="btn-secondary" style="text-decoration: none; padding: 0.75rem 1rem;">Go to Auth Server</a>
                         </div>
                     </div>
 

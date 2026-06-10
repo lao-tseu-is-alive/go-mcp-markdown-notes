@@ -78,6 +78,7 @@ func newApplication(ctx context.Context, config serverConfig, log *slog.Logger) 
 	mux.HandleFunc("GET /health", healthHandler)
 	mux.HandleFunc("GET /readiness", readinessHandler(pool))
 	mux.HandleFunc("GET /goAppInfo", appInfoHandler)
+	mux.HandleFunc("GET /config", frontendConfigHandler(config))
 
 	// Serve embedded frontend (SPA fallback to index.html)
 	frontendFS, err := fs.Sub(frontendFiles, "notesFront/dist")
@@ -134,7 +135,17 @@ func buildTokenVerifier(config serverConfig, log *slog.Logger) (authadapter.Toke
 	if err != nil {
 		return nil, fmt.Errorf("configure JWT verifier: %w", err)
 	}
-	return authadapter.NewJWTVerifier(checker, scopes)
+	jwtVerifier, err := authadapter.NewJWTVerifier(checker, scopes)
+	if err != nil {
+		return nil, err
+	}
+	// Personal access tokens (pat_...) are verified by introspection against
+	// the auth service; JWTs keep being parsed locally with the shared secret.
+	patVerifier, err := authadapter.NewPatVerifier(config.AuthServerURL)
+	if err != nil {
+		return nil, fmt.Errorf("configure PAT verifier: %w", err)
+	}
+	return authadapter.NewCompositeVerifier(jwtVerifier, patVerifier)
 }
 
 func (a *application) close() {
@@ -188,6 +199,18 @@ func readinessHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 		writeJSON(writer, http.StatusOK, map[string]string{"status": "ready"})
+	}
+}
+
+// frontendConfigHandler tells the SPA how to authenticate: in jwt mode it
+// silently mints tokens from the auth service; in dev mode it shows the
+// dev-token form.
+func frontendConfigHandler(config serverConfig) http.HandlerFunc {
+	return func(writer http.ResponseWriter, _ *http.Request) {
+		writeJSON(writer, http.StatusOK, map[string]string{
+			"authMode":    config.AuthMode,
+			"authBaseUrl": config.AuthServerURL,
+		})
 	}
 }
 

@@ -47,6 +47,8 @@ const (
 	NotesServiceAddTagsProcedure = "/notes.v1.NotesService/AddTags"
 	// NotesServiceUpdateNoteProcedure is the fully-qualified name of the NotesService's UpdateNote RPC.
 	NotesServiceUpdateNoteProcedure = "/notes.v1.NotesService/UpdateNote"
+	// NotesServiceDeleteNoteProcedure is the fully-qualified name of the NotesService's DeleteNote RPC.
+	NotesServiceDeleteNoteProcedure = "/notes.v1.NotesService/DeleteNote"
 )
 
 // NotesServiceClient is a client for the notes.v1.NotesService service.
@@ -57,6 +59,7 @@ type NotesServiceClient interface {
 	SearchNotes(context.Context, *connect.Request[v1.SearchNotesRequest]) (*connect.Response[v1.SearchNotesResponse], error)
 	AddTags(context.Context, *connect.Request[v1.AddTagsRequest]) (*connect.Response[v1.AddTagsResponse], error)
 	UpdateNote(context.Context, *connect.Request[v1.UpdateNoteRequest]) (*connect.Response[v1.UpdateNoteResponse], error)
+	DeleteNote(context.Context, *connect.Request[v1.DeleteNoteRequest]) (*connect.Response[v1.DeleteNoteResponse], error)
 }
 
 // NewNotesServiceClient constructs a client for the notes.v1.NotesService service. By default, it
@@ -106,6 +109,12 @@ func NewNotesServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(notesServiceMethods.ByName("UpdateNote")),
 			connect.WithClientOptions(opts...),
 		),
+		deleteNote: connect.NewClient[v1.DeleteNoteRequest, v1.DeleteNoteResponse](
+			httpClient,
+			baseURL+NotesServiceDeleteNoteProcedure,
+			connect.WithSchema(notesServiceMethods.ByName("DeleteNote")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -117,6 +126,7 @@ type notesServiceClient struct {
 	searchNotes     *connect.Client[v1.SearchNotesRequest, v1.SearchNotesResponse]
 	addTags         *connect.Client[v1.AddTagsRequest, v1.AddTagsResponse]
 	updateNote      *connect.Client[v1.UpdateNoteRequest, v1.UpdateNoteResponse]
+	deleteNote      *connect.Client[v1.DeleteNoteRequest, v1.DeleteNoteResponse]
 }
 
 // CreateNote calls notes.v1.NotesService.CreateNote.
@@ -149,6 +159,11 @@ func (c *notesServiceClient) UpdateNote(ctx context.Context, req *connect.Reques
 	return c.updateNote.CallUnary(ctx, req)
 }
 
+// DeleteNote calls notes.v1.NotesService.DeleteNote.
+func (c *notesServiceClient) DeleteNote(ctx context.Context, req *connect.Request[v1.DeleteNoteRequest]) (*connect.Response[v1.DeleteNoteResponse], error) {
+	return c.deleteNote.CallUnary(ctx, req)
+}
+
 // NotesServiceHandler is an implementation of the notes.v1.NotesService service.
 type NotesServiceHandler interface {
 	CreateNote(context.Context, *connect.Request[v1.CreateNoteRequest]) (*connect.Response[v1.CreateNoteResponse], error)
@@ -157,6 +172,7 @@ type NotesServiceHandler interface {
 	SearchNotes(context.Context, *connect.Request[v1.SearchNotesRequest]) (*connect.Response[v1.SearchNotesResponse], error)
 	AddTags(context.Context, *connect.Request[v1.AddTagsRequest]) (*connect.Response[v1.AddTagsResponse], error)
 	UpdateNote(context.Context, *connect.Request[v1.UpdateNoteRequest]) (*connect.Response[v1.UpdateNoteResponse], error)
+	DeleteNote(context.Context, *connect.Request[v1.DeleteNoteRequest]) (*connect.Response[v1.DeleteNoteResponse], error)
 }
 
 // NewNotesServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -202,6 +218,12 @@ func NewNotesServiceHandler(svc NotesServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(notesServiceMethods.ByName("UpdateNote")),
 		connect.WithHandlerOptions(opts...),
 	)
+	notesServiceDeleteNoteHandler := connect.NewUnaryHandler(
+		NotesServiceDeleteNoteProcedure,
+		svc.DeleteNote,
+		connect.WithSchema(notesServiceMethods.ByName("DeleteNote")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/notes.v1.NotesService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case NotesServiceCreateNoteProcedure:
@@ -216,6 +238,8 @@ func NewNotesServiceHandler(svc NotesServiceHandler, opts ...connect.HandlerOpti
 			notesServiceAddTagsHandler.ServeHTTP(w, r)
 		case NotesServiceUpdateNoteProcedure:
 			notesServiceUpdateNoteHandler.ServeHTTP(w, r)
+		case NotesServiceDeleteNoteProcedure:
+			notesServiceDeleteNoteHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -247,4 +271,8 @@ func (UnimplementedNotesServiceHandler) AddTags(context.Context, *connect.Reques
 
 func (UnimplementedNotesServiceHandler) UpdateNote(context.Context, *connect.Request[v1.UpdateNoteRequest]) (*connect.Response[v1.UpdateNoteResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("notes.v1.NotesService.UpdateNote is not implemented"))
+}
+
+func (UnimplementedNotesServiceHandler) DeleteNote(context.Context, *connect.Request[v1.DeleteNoteRequest]) (*connect.Response[v1.DeleteNoteResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("notes.v1.NotesService.DeleteNote is not implemented"))
 }

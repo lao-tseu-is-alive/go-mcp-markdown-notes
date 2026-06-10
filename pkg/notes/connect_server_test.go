@@ -48,6 +48,36 @@ func TestConnectServerRequiresAuthenticationAndScope(t *testing.T) {
 	assertConnectCode(t, err, connect.CodePermissionDenied)
 }
 
+func TestConnectServerDeleteNote(t *testing.T) {
+	repository := &recordingRepository{}
+	service := newTestService(t, repository)
+	server, err := NewConnectServer(service, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	noteID := uuid.New()
+	ctx := authadapter.ContextWithUser(context.Background(), &authadapter.AuthenticatedUser{
+		AppUserID: 71, Scopes: []string{ScopeWrite},
+	})
+
+	if _, err := server.DeleteNote(ctx, connect.NewRequest(&notesv1.DeleteNoteRequest{NoteId: noteID.String()})); err != nil {
+		t.Fatal(err)
+	}
+	if repository.ownerUserID != 71 || repository.deletedID != noteID {
+		t.Fatalf("delete was not scoped: owner=%d noteID=%v", repository.ownerUserID, repository.deletedID)
+	}
+
+	// Read-only scope is rejected.
+	readCtx := authadapter.ContextWithUser(context.Background(), &authadapter.AuthenticatedUser{AppUserID: 71, Scopes: []string{ScopeRead}})
+	_, err = server.DeleteNote(readCtx, connect.NewRequest(&notesv1.DeleteNoteRequest{NoteId: noteID.String()}))
+	assertConnectCode(t, err, connect.CodePermissionDenied)
+
+	// Deleting another user's note (repository miss) maps to NotFound.
+	repository.err = ErrNoteNotFound
+	_, err = server.DeleteNote(ctx, connect.NewRequest(&notesv1.DeleteNoteRequest{NoteId: noteID.String()}))
+	assertConnectCode(t, err, connect.CodeNotFound)
+}
+
 func assertConnectCode(t *testing.T, err error, want connect.Code) {
 	t.Helper()
 	connectErr, ok := err.(*connect.Error)

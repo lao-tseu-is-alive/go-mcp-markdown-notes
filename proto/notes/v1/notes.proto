@@ -11,6 +11,7 @@ service NotesService {
   rpc SearchNotes(SearchNotesRequest) returns (SearchNotesResponse);
   rpc AddTags(AddTagsRequest) returns (AddTagsResponse);
   rpc UpdateNote(UpdateNoteRequest) returns (UpdateNoteResponse);
+  rpc DeleteNote(DeleteNoteRequest) returns (DeleteNoteResponse);
 }
 
 message Note {
@@ -82,3 +83,9 @@ message UpdateNoteRequest {
 message UpdateNoteResponse {
   Note note = 1;
 }
+
+message DeleteNoteRequest {
+  string note_id = 1;
+}
+
+message DeleteNoteResponse {}

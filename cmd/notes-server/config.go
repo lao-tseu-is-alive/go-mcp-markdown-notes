@@ -14,6 +14,7 @@ import (
 const (
 	defaultListenAddress  = "127.0.0.1:8080"
 	defaultAuthMode       = "jwt"
+	defaultAuthServerURL  = "http://localhost:9090"
 	defaultShutdownPeriod = 10 * time.Second
 	defaultMaxConnections = 10
 )
@@ -22,6 +23,7 @@ type serverConfig struct {
 	ListenAddress  string
 	DatabaseURL    string
 	AuthMode       string
+	AuthServerURL  string
 	DevToken       string
 	DevUserID      int64
 	DevUserEmail   string
@@ -47,6 +49,11 @@ func loadConfig() (serverConfig, error) {
 		return serverConfig{}, fmt.Errorf("NOTES_AUTH_MODE must be jwt or dev")
 	}
 
+	authServerURL := strings.TrimRight(envOrDefault("AUTH_SERVER_URL", defaultAuthServerURL), "/")
+	if parsed, err := url.Parse(authServerURL); err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+		return serverConfig{}, fmt.Errorf("AUTH_SERVER_URL must be a valid http(s) URL")
+	}
+
 	devUserID, err := envInt64("NOTES_DEV_USER_ID", 1)
 	if err != nil {
 		return serverConfig{}, err
@@ -68,6 +75,7 @@ func loadConfig() (serverConfig, error) {
 		ListenAddress:  listenAddress,
 		DatabaseURL:    databaseURL,
 		AuthMode:       authMode,
+		AuthServerURL:  authServerURL,
 		DevToken:       os.Getenv("NOTES_DEV_TOKEN"),
 		DevUserID:      devUserID,
 		DevUserEmail:   envOrDefault("NOTES_DEV_USER_EMAIL", "dev@localhost"),

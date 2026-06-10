@@ -121,6 +121,17 @@ func (r *PostgresRepository) UpdateNote(ctx context.Context, ownerUserID int64, 
 	return r.GetNote(ctx, ownerUserID, noteID)
 }
 
+func (r *PostgresRepository) DeleteNote(ctx context.Context, ownerUserID int64, noteID uuid.UUID) error {
+	tag, err := r.pool.Exec(ctx, deleteNoteSQL, ownerUserID, noteID)
+	if err != nil {
+		return fmt.Errorf("delete note: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNoteNotFound
+	}
+	return nil
+}
+
 type execer interface {
 	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
 }

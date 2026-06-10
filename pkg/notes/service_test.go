@@ -17,6 +17,7 @@ type recordingRepository struct {
 	addedTags   []string
 	search      SearchFilter
 	limit       int
+	deletedID   uuid.UUID
 	note        *Note
 	err         error
 }
@@ -44,6 +45,10 @@ func (r *recordingRepository) AddTags(_ context.Context, ownerUserID int64, _ uu
 func (r *recordingRepository) UpdateNote(_ context.Context, ownerUserID int64, _ uuid.UUID, _ UpdateNoteInput) (*Note, error) {
 	r.ownerUserID = ownerUserID
 	return r.note, r.err
+}
+func (r *recordingRepository) DeleteNote(_ context.Context, ownerUserID int64, noteID uuid.UUID) error {
+	r.ownerUserID, r.deletedID = ownerUserID, noteID
+	return r.err
 }
 
 func newTestService(t *testing.T, repository Repository) *Service {
@@ -140,6 +145,32 @@ func TestServiceSearchNormalizesFilters(t *testing.T) {
 	}
 	if repository.search.Limit != DefaultLimit || len(repository.search.Tags) != 1 || repository.search.Tags[0] != "go" {
 		t.Fatalf("filter = %#v", repository.search)
+	}
+}
+
+func TestServiceDeleteNote(t *testing.T) {
+	repository := &recordingRepository{}
+	service := newTestService(t, repository)
+	noteID := uuid.New()
+
+	if err := service.DeleteNote(context.Background(), 42, noteID); err != nil {
+		t.Fatal(err)
+	}
+	if repository.ownerUserID != 42 || repository.deletedID != noteID {
+		t.Fatalf("delete was not scoped: owner=%d noteID=%v", repository.ownerUserID, repository.deletedID)
+	}
+
+	if err := service.DeleteNote(context.Background(), 0, noteID); !errors.Is(err, ErrUnauthenticated) {
+		t.Fatalf("error = %v, want ErrUnauthenticated", err)
+	}
+	if err := service.DeleteNote(context.Background(), 42, uuid.Nil); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("error = %v, want ErrInvalidInput", err)
+	}
+
+	// A repository miss (wrong owner or unknown id) surfaces as not-found.
+	repository.err = ErrNoteNotFound
+	if err := service.DeleteNote(context.Background(), 42, noteID); !errors.Is(err, ErrNoteNotFound) {
+		t.Fatalf("error = %v, want ErrNoteNotFound", err)
 	}
 }
 

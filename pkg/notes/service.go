@@ -159,6 +159,17 @@ func (s *Service) UpdateNote(ctx context.Context, ownerUserID int64, noteID uuid
 	return note, nil
 }
 
+func (s *Service) DeleteNote(ctx context.Context, ownerUserID int64, noteID uuid.UUID) error {
+	if err := validateOwnerAndNoteID(ownerUserID, noteID); err != nil {
+		return err
+	}
+	if err := s.repository.DeleteNote(ctx, ownerUserID, noteID); err != nil {
+		return fmt.Errorf("delete note: %w", err)
+	}
+	s.log.Info("deleted note", "note_id", noteID, "owner_user_id", ownerUserID)
+	return nil
+}
+
 func normalizeCreateInput(input CreateNoteInput) (CreateNoteInput, error) {
 	title, body, category, tags, err := normalizeNoteFields(input.Title, input.BodyMarkdown, input.Category, input.Tags)
 	return CreateNoteInput{Title: title, BodyMarkdown: body, Category: category, Tags: tags}, err

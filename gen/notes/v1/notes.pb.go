@@ -737,6 +737,86 @@ func (x *UpdateNoteResponse) GetNote() *Note {
 	return nil
 }
 
+type DeleteNoteRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	NoteId        string                 `protobuf:"bytes,1,opt,name=note_id,json=noteId,proto3" json:"note_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteNoteRequest) Reset() {
+	*x = DeleteNoteRequest{}
+	mi := &file_notes_v1_notes_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteNoteRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteNoteRequest) ProtoMessage() {}
+
+func (x *DeleteNoteRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_notes_v1_notes_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteNoteRequest.ProtoReflect.Descriptor instead.
+func (*DeleteNoteRequest) Descriptor() ([]byte, []int) {
+	return file_notes_v1_notes_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *DeleteNoteRequest) GetNoteId() string {
+	if x != nil {
+		return x.NoteId
+	}
+	return ""
+}
+
+type DeleteNoteResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteNoteResponse) Reset() {
+	*x = DeleteNoteResponse{}
+	mi := &file_notes_v1_notes_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteNoteResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteNoteResponse) ProtoMessage() {}
+
+func (x *DeleteNoteResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_notes_v1_notes_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteNoteResponse.ProtoReflect.Descriptor instead.
+func (*DeleteNoteResponse) Descriptor() ([]byte, []int) {
+	return file_notes_v1_notes_proto_rawDescGZIP(), []int{14}
+}
+
 var File_notes_v1_notes_proto protoreflect.FileDescriptor
 
 const file_notes_v1_notes_proto_rawDesc = "" +
@@ -787,7 +867,10 @@ const file_notes_v1_notes_proto_rawDesc = "" +
 	"\bcategory\x18\x04 \x01(\tR\bcategory\x12\x12\n" +
 	"\x04tags\x18\x05 \x03(\tR\x04tags\"8\n" +
 	"\x12UpdateNoteResponse\x12\"\n" +
-	"\x04note\x18\x01 \x01(\v2\x0e.notes.v1.NoteR\x04note2\xc4\x03\n" +
+	"\x04note\x18\x01 \x01(\v2\x0e.notes.v1.NoteR\x04note\",\n" +
+	"\x11DeleteNoteRequest\x12\x17\n" +
+	"\anote_id\x18\x01 \x01(\tR\x06noteId\"\x14\n" +
+	"\x12DeleteNoteResponse2\x8d\x04\n" +
 	"\fNotesService\x12G\n" +
 	"\n" +
 	"CreateNote\x12\x1b.notes.v1.CreateNoteRequest\x1a\x1c.notes.v1.CreateNoteResponse\x12>\n" +
@@ -796,7 +879,9 @@ const file_notes_v1_notes_proto_rawDesc = "" +
 	"\vSearchNotes\x12\x1c.notes.v1.SearchNotesRequest\x1a\x1d.notes.v1.SearchNotesResponse\x12>\n" +
 	"\aAddTags\x12\x18.notes.v1.AddTagsRequest\x1a\x19.notes.v1.AddTagsResponse\x12G\n" +
 	"\n" +
-	"UpdateNote\x12\x1b.notes.v1.UpdateNoteRequest\x1a\x1c.notes.v1.UpdateNoteResponseB\xa4\x01\n" +
+	"UpdateNote\x12\x1b.notes.v1.UpdateNoteRequest\x1a\x1c.notes.v1.UpdateNoteResponse\x12G\n" +
+	"\n" +
+	"DeleteNote\x12\x1b.notes.v1.DeleteNoteRequest\x1a\x1c.notes.v1.DeleteNoteResponseB\xa4\x01\n" +
 	"\fcom.notes.v1B\n" +
 	"NotesProtoP\x01ZGgithub.com/lao-tseu-is-alive/go-mcp-markdown-notes/gen/notes/v1;notesv1\xa2\x02\x03NXX\xaa\x02\bNotes.V1\xca\x02\bNotes\\V1\xe2\x02\x14Notes\\V1\\GPBMetadata\xea\x02\tNotes::V1b\x06proto3"
 
@@ -812,7 +897,7 @@ func file_notes_v1_notes_proto_rawDescGZIP() []byte {
 	return file_notes_v1_notes_proto_rawDescData
 }
 
-var file_notes_v1_notes_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_notes_v1_notes_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
 var file_notes_v1_notes_proto_goTypes = []any{
 	(*Note)(nil),                    // 0: notes.v1.Note
 	(*CreateNoteRequest)(nil),       // 1: notes.v1.CreateNoteRequest
@@ -827,6 +912,8 @@ var file_notes_v1_notes_proto_goTypes = []any{
 	(*AddTagsResponse)(nil),         // 10: notes.v1.AddTagsResponse
 	(*UpdateNoteRequest)(nil),       // 11: notes.v1.UpdateNoteRequest
 	(*UpdateNoteResponse)(nil),      // 12: notes.v1.UpdateNoteResponse
+	(*DeleteNoteRequest)(nil),       // 13: notes.v1.DeleteNoteRequest
+	(*DeleteNoteResponse)(nil),      // 14: notes.v1.DeleteNoteResponse
 }
 var file_notes_v1_notes_proto_depIdxs = []int32{
 	0,  // 0: notes.v1.CreateNoteResponse.note:type_name -> notes.v1.Note
@@ -841,14 +928,16 @@ var file_notes_v1_notes_proto_depIdxs = []int32{
 	7,  // 9: notes.v1.NotesService.SearchNotes:input_type -> notes.v1.SearchNotesRequest
 	9,  // 10: notes.v1.NotesService.AddTags:input_type -> notes.v1.AddTagsRequest
 	11, // 11: notes.v1.NotesService.UpdateNote:input_type -> notes.v1.UpdateNoteRequest
-	2,  // 12: notes.v1.NotesService.CreateNote:output_type -> notes.v1.CreateNoteResponse
-	4,  // 13: notes.v1.NotesService.GetNote:output_type -> notes.v1.GetNoteResponse
-	6,  // 14: notes.v1.NotesService.ListRecentNotes:output_type -> notes.v1.ListRecentNotesResponse
-	8,  // 15: notes.v1.NotesService.SearchNotes:output_type -> notes.v1.SearchNotesResponse
-	10, // 16: notes.v1.NotesService.AddTags:output_type -> notes.v1.AddTagsResponse
-	12, // 17: notes.v1.NotesService.UpdateNote:output_type -> notes.v1.UpdateNoteResponse
-	12, // [12:18] is the sub-list for method output_type
-	6,  // [6:12] is the sub-list for method input_type
+	13, // 12: notes.v1.NotesService.DeleteNote:input_type -> notes.v1.DeleteNoteRequest
+	2,  // 13: notes.v1.NotesService.CreateNote:output_type -> notes.v1.CreateNoteResponse
+	4,  // 14: notes.v1.NotesService.GetNote:output_type -> notes.v1.GetNoteResponse
+	6,  // 15: notes.v1.NotesService.ListRecentNotes:output_type -> notes.v1.ListRecentNotesResponse
+	8,  // 16: notes.v1.NotesService.SearchNotes:output_type -> notes.v1.SearchNotesResponse
+	10, // 17: notes.v1.NotesService.AddTags:output_type -> notes.v1.AddTagsResponse
+	12, // 18: notes.v1.NotesService.UpdateNote:output_type -> notes.v1.UpdateNoteResponse
+	14, // 19: notes.v1.NotesService.DeleteNote:output_type -> notes.v1.DeleteNoteResponse
+	13, // [13:20] is the sub-list for method output_type
+	6,  // [6:13] is the sub-list for method input_type
 	6,  // [6:6] is the sub-list for extension type_name
 	6,  // [6:6] is the sub-list for extension extendee
 	0,  // [0:6] is the sub-list for field type_name
@@ -865,7 +954,7 @@ func file_notes_v1_notes_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_notes_v1_notes_proto_rawDesc), len(file_notes_v1_notes_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   13,
+			NumMessages:   15,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

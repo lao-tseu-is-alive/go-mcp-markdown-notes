@@ -124,6 +124,21 @@ func (s *ConnectServer) UpdateNote(ctx context.Context, req *connect.Request[not
 	return connect.NewResponse(&notesv1.UpdateNoteResponse{Note: DomainNoteToProto(note)}), nil
 }
 
+func (s *ConnectServer) DeleteNote(ctx context.Context, req *connect.Request[notesv1.DeleteNoteRequest]) (*connect.Response[notesv1.DeleteNoteResponse], error) {
+	ownerUserID, err := requireOwner(ctx, ScopeWrite)
+	if err != nil {
+		return nil, err
+	}
+	noteID, err := parseNoteID(req.Msg.NoteId)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.service.DeleteNote(ctx, ownerUserID, noteID); err != nil {
+		return nil, s.mapError(err)
+	}
+	return connect.NewResponse(&notesv1.DeleteNoteResponse{}), nil
+}
+
 func requireOwner(ctx context.Context, scope string) (int64, error) {
 	user, err := authadapter.RequireUser(ctx)
 	if err != nil {

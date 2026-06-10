@@ -59,6 +59,9 @@ RETURNING id;`
 
 const deleteTagsSQL = `DELETE FROM note_tags WHERE owner_user_id = $1 AND note_id = $2;`
 
+// note_tags rows are removed by the ON DELETE CASCADE foreign key.
+const deleteNoteSQL = `DELETE FROM notes WHERE owner_user_id = $1 AND id = $2;`
+
 const countTagsAfterAddSQL = `
 SELECT COUNT(*) FROM (
     SELECT tag FROM note_tags WHERE owner_user_id = $1 AND note_id = $2

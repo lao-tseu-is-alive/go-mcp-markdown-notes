@@ -29,9 +29,18 @@ The MCP server (`notes-mcp`) will be built to act as a client calling the `notes
 
 ---
 
-### Strategy B: JWT Mode (Token Auto-Renewal)
-Since JWT tokens expire after 15 minutes, the MCP server must dynamically renew its token programmatically in the background without user intervention.
+### Strategy B: Personal Access Token (PAT) — IMPLEMENTED
+This replaces the earlier "admin password auto-renewal" idea: instead of giving
+the MCP process a password to mint short-lived JWTs, the user creates a
+long-lived **Personal Access Token** once and configures it as an env var.
+PATs are issued and revocable centrally by `go-cloud-k8s-auth` and verified by
+`notes-server` through the public `POST /goapi/v1/auth/introspect` endpoint
+(with a 60 s positive cache).
 
+- **Creating a token**: sign in on the auth service and open
+  `http://<AUTH_SERVER>/tokens.html` (also linked from the notes web app as
+  "Manage MCP tokens"). Create a token (e.g. scopes `notes:read`,
+  `notes:write`, `notes:mcp`); the full `pat_...` value is shown exactly once.
 - **LLM Host Config**:
   ```json
   "mcpServers": {
@@ -39,19 +48,18 @@ Since JWT tokens expire after 15 minutes, the MCP server must dynamically renew 
       "command": "/path/to/go-mcp-markdown-notes/bin/notes-mcp",
       "env": {
         "NOTES_SERVER": "http://127.0.0.1:8080",
-        "AUTH_SERVER": "http://127.0.0.1:9090",
-        "ADMIN_USER": "<your_admin_user>",
-        "ADMIN_PASSWORD": "<your_admin_password>"
+        "NOTES_TOKEN": "pat_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
       }
     }
   }
   ```
-- **Login Request**:
-  1. The MCP server reads `ADMIN_USER` and `ADMIN_PASSWORD` from its environment.
-  2. It hashes the password using SHA-256: `hash = sha256(password)`.
-  3. It sends a `POST` request to `http://<AUTH_SERVER>/login` with the payload `{"username": "$ADMIN_USER", "password_hash": "$hash"}` to retrieve a fresh JWT token.
-- **In-Memory Caching & Verification**:
-  - The fetched token is stored in-memory in the Go process.
-  - The Connect client attaches the token in the `Authorization: Bearer <token>` header of every outgoing RPC request.
-- **Auto-Healing Interceptor**:
-  - The Go client wraps requests in an interceptor. If an RPC call returns a `401 Unauthenticated` error (indicating the cached token has expired), the interceptor catches it, automatically invokes the login routine to refresh the token, updates the cache, and retries the failed RPC call.
+- **Behavior**:
+  - The token is attached as `Authorization: Bearer <NOTES_TOKEN>` on every
+    Connect RPC call (see `pkg/mcpnotes/client.go`).
+  - `notes-server` routes `pat_`-prefixed tokens to the auth service
+    introspection endpoint (composite verifier in `pkg/authadapter`); all data
+    stays scoped to the token owner's `user_id`.
+  - No renewal logic is needed: PATs live until they expire or are revoked in
+    the tokens UI. Revocation takes effect within at most 60 seconds.
+  - On `401 Unauthenticated`, the MCP tools return an explicit message asking
+    the user to check `NOTES_TOKEN`.

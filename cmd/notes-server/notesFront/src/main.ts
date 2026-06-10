@@ -1,25 +1,43 @@
 // Connect RPC Notes Client Logic
 
-// --- CONSTANTS ---
-const STORAGE_TOKEN_KEY = "notes_auth_token";
-const STORAGE_TYPE_KEY = "notes_auth_type";
-
 // --- STATE ---
-let currentToken = localStorage.getItem(STORAGE_TOKEN_KEY) || "";
-let authType = localStorage.getItem(STORAGE_TYPE_KEY) || "dev"; // "dev" or "jwt"
+// authMode "jwt": tokens are silently minted from the auth service using the
+// SSO session cookie and kept in memory only (never persisted in the browser).
+// authMode "dev": a static dev token is entered manually (local hacking).
+let authMode: "jwt" | "dev" = "jwt";
+let authBaseUrl = "";
+let currentToken = "";
+let currentUser: TokenUser | null = null;
+let remintTimer: ReturnType<typeof setTimeout> | null = null;
 let currentNotesList: any[] = [];
 
+interface TokenUser {
+    user_id: number;
+    email: string;
+    name: string;
+    avatar_url?: string;
+    is_admin: boolean;
+}
+
+interface TokenResponse {
+    token: string;
+    expires_in_seconds: number;
+    user: TokenUser;
+}
+
 // --- DOM ELEMENTS ---
-const tabButtons = document.querySelectorAll<HTMLElement>("[data-auth-tab], [data-op-tab]");
-const authPanels = document.querySelectorAll<HTMLElement>(".auth-container .tab-panel");
+const tabButtons = document.querySelectorAll<HTMLElement>("[data-op-tab]");
 const opPanels = document.querySelectorAll<HTMLElement>(".card:nth-of-type(2) .tab-panel");
 
+const ssoPanel = document.getElementById("auth-panel-sso") as HTMLElement;
+const devPanel = document.getElementById("auth-panel-dev") as HTMLElement;
 const devTokenInput = document.getElementById("dev-token-input") as HTMLInputElement;
-const jwtTokenInput = document.getElementById("jwt-token-input") as HTMLInputElement;
 const btnLoginDev = document.getElementById("btn-login-dev") as HTMLButtonElement;
 const btnLogoutDev = document.getElementById("btn-logout-dev") as HTMLButtonElement;
-const btnLoginJwt = document.getElementById("btn-login-jwt") as HTMLButtonElement;
-const btnLogoutJwt = document.getElementById("btn-logout-jwt") as HTMLButtonElement;
+const btnSignIn = document.getElementById("btn-sign-in") as HTMLButtonElement;
+const btnSignOut = document.getElementById("btn-sign-out") as HTMLButtonElement;
+const ssoHint = document.getElementById("sso-hint") as HTMLElement;
+const manageTokensLink = document.getElementById("lnk-manage-tokens") as HTMLAnchorElement;
 
 const authStatusBadge = document.getElementById("auth-status") as HTMLElement;
 const authStatusText = document.getElementById("auth-status-text") as HTMLElement;
@@ -48,64 +66,25 @@ const toastMessage = document.getElementById("toast-message") as HTMLElement;
 const tabUpdateToggle = document.getElementById("tab-update-toggle") as HTMLElement;
 const btnCancelUpdate = document.getElementById("btn-cancel-update") as HTMLButtonElement;
 
-// --- JWT DECODER ---
-interface JWTUser {
-    name?: string;
-    email?: string;
-    id?: string | number;
-    roles?: string[];
-    provider?: string;
-    scopes?: string[];
-}
-
-interface JWTPayload {
-    user?: JWTUser;
-    sub?: string;
-    email?: string;
-    name?: string;
-    scopes?: string[];
-    exp?: number;
-}
-
-function decodeJWT(token: string): JWTPayload | null {
-    try {
-        const parts = token.split(".");
-        if (parts.length !== 3) return null;
-        const base64Url = parts[1];
-        if (!base64Url) return null;
-        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-        const jsonPayload = decodeURIComponent(
-            atob(base64)
-                .split("")
-                .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-                .join("")
-        );
-        return JSON.parse(jsonPayload);
-    } catch (e) {
-        return null;
-    }
-}
-
 // --- DEBUG LOGGER ---
 function logToConsole(message: string, isError = false) {
     const timestamp = new Date().toLocaleTimeString();
     const prefix = `[${timestamp}] `;
     const entryDiv = document.createElement("div");
     entryDiv.className = "console-entry";
-    
+
     if (isError) {
         entryDiv.style.color = "var(--accent-red)";
     }
-    
+
     entryDiv.textContent = prefix + message;
     debugOutput.insertBefore(entryDiv, debugOutput.firstChild);
 }
 
 function logRequest(url: string, headers: any, body: any) {
-    const timestamp = new Date().toLocaleTimeString();
     const entryDiv = document.createElement("div");
     entryDiv.className = "console-entry";
-    
+
     // Mask sensitive headers in display
     const displayHeaders = { ...headers };
     if (displayHeaders["Authorization"]) {
@@ -125,7 +104,6 @@ function logRequest(url: string, headers: any, body: any) {
 }
 
 function logResponse(status: number, statusText: string, data: any) {
-    const timestamp = new Date().toLocaleTimeString();
     const entryDiv = document.createElement("div");
     entryDiv.className = "console-entry";
     const isErr = status >= 400;
@@ -146,7 +124,7 @@ function showToast(message: string, type: "success" | "error" | "info" = "info")
     clearTimeout(toastTimeout);
     toastMessage.textContent = message;
     toastNotification.className = `toast toast-${type} show`;
-    
+
     toastTimeout = setTimeout(() => {
         toastNotification.classList.remove("show");
     }, 4000);
@@ -159,103 +137,129 @@ function renderMarkdown(md: string): string {
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;");
-    
+
     // Code blocks (multiline)
     html = html.replace(/```([\s\S]*?)```/gm, (_, code) => `<pre style="font-family: var(--font-mono); background: rgba(0,0,0,0.5); padding: 0.5rem; border-radius: 4px; overflow-x: auto; margin: 0.5rem 0; font-size: 0.8rem; border: 1px solid rgba(255,255,255,0.05); color: #a5f3fc;">${code.trim()}</pre>`);
-    
+
     // Headers
     html = html.replace(/^### (.*$)/gim, '<h3 style="margin: 0.75rem 0 0.25rem 0; font-size: 1rem; color: #e9d5ff;">$1</h3>');
     html = html.replace(/^## (.*$)/gim, '<h2 style="margin: 1rem 0 0.5rem 0; font-size: 1.15rem; color: #c084fc;">$1</h2>');
     html = html.replace(/^# (.*$)/gim, '<h1 style="margin: 1.25rem 0 0.75rem 0; font-size: 1.35rem; color: #d8b4fe; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 0.25rem;">$1</h1>');
-    
+
     // Bold
     html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    
+
     // Italic
     html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
-    
+
     // Inline code
     html = html.replace(/`(.*?)`/g, '<code style="font-family: var(--font-mono); background: rgba(255,255,255,0.1); padding: 0.15rem 0.3rem; border-radius: 4px; font-size: 0.85rem; color: #f472b6;">$1</code>');
-    
+
     // Linebreaks
     html = html.replace(/\n/g, "<br>");
-    
+
     return html;
 }
 
 // --- AUTH STATE MANAGEMENT ---
 function updateAuthStateUI() {
-    if (currentToken) {
-        authStatusBadge.className = "status-badge connected";
-        authStatusText.textContent = "CONNECTED";
-        userProfileCard.style.display = "block";
+    const connected = currentToken !== "";
+    authStatusBadge.className = connected ? "status-badge connected" : "status-badge";
+    authStatusText.textContent = connected ? "CONNECTED" : "NOT CONNECTED";
+    userProfileCard.style.display = connected ? "block" : "none";
 
-        if (authType === "dev") {
-            btnLoginDev.style.display = "none";
-            btnLogoutDev.style.display = "block";
-            btnLoginJwt.style.display = "inline-flex";
-            btnLogoutJwt.style.display = "none";
-            
+    if (authMode === "dev") {
+        devPanel.style.display = "block";
+        ssoPanel.style.display = "none";
+        btnLoginDev.style.display = connected ? "none" : "inline-flex";
+        btnLogoutDev.style.display = connected ? "block" : "none";
+        if (connected) {
             profileName.textContent = "Local Notes User";
             profileEmail.textContent = "dev@localhost";
             profileId.textContent = "1";
             profileScopes.textContent = "notes:read, notes:write, notes:mcp";
-            
-            devTokenInput.value = currentToken;
-        } else {
-            btnLoginDev.style.display = "inline-flex";
-            btnLogoutDev.style.display = "none";
-            btnLoginJwt.style.display = "none";
-            btnLogoutJwt.style.display = "block";
-
-            jwtTokenInput.value = currentToken;
-
-            const payload = decodeJWT(currentToken);
-            if (payload) {
-                profileName.textContent = payload.user?.name || payload.name || "JWT User";
-                profileEmail.textContent = payload.user?.email || payload.email || "-";
-                profileId.textContent = String(payload.user?.id || payload.sub || "-");
-                
-                const scopes = payload.user?.scopes || payload.scopes || [];
-                profileScopes.textContent = scopes.length > 0 ? scopes.join(", ") : "no explicit scopes";
-            } else {
-                profileName.textContent = "JWT Token Holder";
-                profileEmail.textContent = "-";
-                profileId.textContent = "unknown";
-                profileScopes.textContent = "n/a (token is not standard claims JWT)";
-            }
         }
-    } else {
-        authStatusBadge.className = "status-badge";
-        authStatusText.textContent = "NOT CONNECTED";
-        userProfileCard.style.display = "none";
-        
-        btnLoginDev.style.display = "inline-flex";
-        btnLogoutDev.style.display = "none";
-        btnLoginJwt.style.display = "inline-flex";
-        btnLogoutJwt.style.display = "none";
+        return;
+    }
+
+    // SSO (jwt) mode
+    devPanel.style.display = "none";
+    ssoPanel.style.display = "block";
+    btnSignIn.style.display = connected ? "none" : "inline-flex";
+    btnSignOut.style.display = connected ? "inline-flex" : "none";
+    manageTokensLink.style.display = connected ? "inline-flex" : "none";
+    ssoHint.textContent = connected
+        ? "You are signed in. Tokens are refreshed silently from your SSO session."
+        : "Sign in with your Google or GitHub account. You will be redirected to the auth service and back.";
+
+    if (connected && currentUser) {
+        profileName.textContent = currentUser.name || "-";
+        profileEmail.textContent = currentUser.email || "-";
+        profileId.textContent = String(currentUser.user_id ?? "-");
+        profileScopes.textContent = currentUser.is_admin
+            ? "notes:read, notes:write, notes:mcp, notes:admin"
+            : "notes:read, notes:write, notes:mcp";
     }
 }
 
-function setToken(token: string, type: "dev" | "jwt") {
-    currentToken = token;
-    authType = type;
-    localStorage.setItem(STORAGE_TOKEN_KEY, token);
-    localStorage.setItem(STORAGE_TYPE_KEY, type);
-    updateAuthStateUI();
-    logToConsole(`Authentication set to ${type.toUpperCase()} mode.`);
+// mintToken silently obtains a fresh short-lived JWT from the auth service
+// using the SSO session cookie. Returns true when a token was obtained.
+async function mintToken(): Promise<boolean> {
+    try {
+        const res = await fetch(`${authBaseUrl}/auth/token`, { credentials: "include" });
+        if (res.status === 401) {
+            clearAuth();
+            logToConsole("No SSO session: sign-in required.");
+            return false;
+        }
+        if (!res.ok) {
+            logToConsole(`Token mint failed with HTTP ${res.status}`, true);
+            return false;
+        }
+        const data: TokenResponse = await res.json();
+        currentToken = data.token;
+        currentUser = data.user;
+        scheduleRemint(data.expires_in_seconds);
+        updateAuthStateUI();
+        logToConsole(`Token minted for ${data.user.email}, valid ${data.expires_in_seconds}s.`);
+        return true;
+    } catch (e: any) {
+        logToConsole(`Token mint failed: ${e.message} (is the auth service up at ${authBaseUrl}?)`, true);
+        return false;
+    }
+}
+
+// scheduleRemint refreshes the JWT at ~80% of its lifetime so RPC calls never
+// race against expiry.
+function scheduleRemint(expiresInSeconds: number) {
+    if (remintTimer) clearTimeout(remintTimer);
+    const delayMs = Math.max(expiresInSeconds * 800, 30_000);
+    remintTimer = setTimeout(() => { mintToken(); }, delayMs);
+}
+
+function signIn() {
+    window.location.href = `${authBaseUrl}/auth/login?redirect_uri=${encodeURIComponent(window.location.href)}`;
+}
+
+async function signOut() {
+    try {
+        await fetch(`${authBaseUrl}/auth/logout`, { method: "POST", credentials: "include" });
+    } catch (e: any) {
+        logToConsole(`Logout call failed: ${e.message}`, true);
+    }
+    clearAuth();
+    showToast("Signed out.", "info");
 }
 
 function clearAuth() {
     currentToken = "";
-    localStorage.removeItem(STORAGE_TOKEN_KEY);
-    localStorage.removeItem(STORAGE_TYPE_KEY);
+    currentUser = null;
+    if (remintTimer) clearTimeout(remintTimer);
     updateAuthStateUI();
-    logToConsole("Logged out, token cleared.");
 }
 
 // --- CONNECT SERVICE CALLS ---
-async function callConnectRPC(methodName: string, requestData: any) {
+async function callConnectRPC(methodName: string, requestData: any, isRetry = false): Promise<any> {
     const url = `/notes.v1.NotesService/${methodName}`;
     const headers: Record<string, string> = {
         "Content-Type": "application/json",
@@ -275,9 +279,17 @@ async function callConnectRPC(methodName: string, requestData: any) {
             body: JSON.stringify(requestData),
         });
 
+        // An expired JWT yields 401: silently re-mint once and retry.
+        if (response.status === 401 && authMode === "jwt" && !isRetry) {
+            logToConsole("Got 401, re-minting token and retrying...");
+            if (await mintToken()) {
+                return callConnectRPC(methodName, requestData, true);
+            }
+        }
+
         let responseData: any = null;
         const contentType = response.headers.get("content-type") || "";
-        
+
         if (contentType.includes("application/json")) {
             responseData = await response.json();
         } else {
@@ -318,15 +330,14 @@ function populateNotesUI(notes: any[]) {
     currentNotesList.forEach((note: any) => {
         const card = document.createElement("div");
         card.className = "note-card";
-        
+
         const categoryLabel = note.category ? `<span class="note-category">${note.category}</span>` : "";
-        
+
         const tags = note.tags || [];
         const tagsHtml = tags.map((t: string) => `<span class="tag-pill">${t}</span>`).join("");
 
-        const createdStr = note.createdAt ? new Date(note.createdAt).toLocaleString() : "unknown";
         const updatedStr = note.updatedAt ? new Date(note.updatedAt).toLocaleString() : "unknown";
-        
+
         card.innerHTML = `
             <div class="note-header">
                 <div class="note-title-line">
@@ -343,6 +354,7 @@ function populateNotesUI(notes: any[]) {
                     <div class="note-actions">
                         <button class="btn-secondary btn-icon" data-action="add-tag" data-note-id="${note.id}">+ Tag</button>
                         <button class="btn-accent btn-icon" data-action="edit" data-note-id="${note.id}">Edit</button>
+                        <button class="btn-danger btn-icon" data-action="delete" data-note-id="${note.id}">Delete</button>
                     </div>
                 </div>
             </div>
@@ -368,7 +380,7 @@ function populateNotesUI(notes: any[]) {
                 const parsedTags = tagsPrompt.split(",").map(t => t.trim()).filter(Boolean);
                 if (parsedTags.length > 0) {
                     try {
-                        const result = await callConnectRPC("AddTags", {
+                        await callConnectRPC("AddTags", {
                             noteId: noteId,
                             tags: parsedTags
                         });
@@ -388,6 +400,20 @@ function populateNotesUI(notes: any[]) {
             if (note) {
                 startEditMode(note);
             }
+        });
+    });
+
+    notesContainer.querySelectorAll("[data-action='delete']").forEach((el) => {
+        el.addEventListener("click", async (e) => {
+            const noteId = (e.target as HTMLElement).getAttribute("data-note-id") || "";
+            const note = currentNotesList.find(n => n.id === noteId);
+            const title = note?.title || noteId;
+            if (!confirm(`Delete note "${title}"? This cannot be undone.`)) return;
+            try {
+                await callConnectRPC("DeleteNote", { noteId: noteId });
+                showToast("Note deleted.", "success");
+                fetchNotesList();
+            } catch (err) {}
         });
     });
 }
@@ -427,19 +453,8 @@ async function fetchNotesList() {
 function initTabNavigation() {
     tabButtons.forEach((btn) => {
         btn.addEventListener("click", () => {
-            const authTab = btn.getAttribute("data-auth-tab");
             const opTab = btn.getAttribute("data-op-tab");
-
-            if (authTab) {
-                // Switch auth tabs
-                document.querySelectorAll("[data-auth-tab]").forEach(b => b.classList.remove("active"));
-                btn.classList.add("active");
-                authPanels.forEach((p) => {
-                    p.classList.remove("active");
-                    if (p.id === `auth-panel-${authTab}`) p.classList.add("active");
-                });
-            } else if (opTab) {
-                // Switch op tabs
+            if (opTab) {
                 document.querySelectorAll("[data-op-tab]").forEach(b => b.classList.remove("active"));
                 btn.classList.add("active");
                 opPanels.forEach((p) => {
@@ -459,6 +474,10 @@ function setupEventHandlers() {
         showToast("Console cleared", "info");
     });
 
+    // SSO sign in / out
+    btnSignIn.addEventListener("click", signIn);
+    btnSignOut.addEventListener("click", signOut);
+
     // Dev Auth Click
     btnLoginDev.addEventListener("click", () => {
         const token = devTokenInput.value.trim();
@@ -466,24 +485,15 @@ function setupEventHandlers() {
             showToast("Dev token cannot be empty", "error");
             return;
         }
-        setToken(token, "dev");
+        currentToken = token;
+        updateAuthStateUI();
         showToast("Dev token applied!", "success");
     });
 
-    btnLogoutDev.addEventListener("click", clearAuth);
-
-    // JWT Auth Click
-    btnLoginJwt.addEventListener("click", () => {
-        const token = jwtTokenInput.value.trim();
-        if (!token) {
-            showToast("JWT token cannot be empty", "error");
-            return;
-        }
-        setToken(token, "jwt");
-        showToast("JWT token applied!", "success");
+    btnLogoutDev.addEventListener("click", () => {
+        clearAuth();
+        logToConsole("Dev token cleared.");
     });
-
-    btnLogoutJwt.addEventListener("click", clearAuth);
 
     // Create Note Form Submission
     createNoteForm.addEventListener("submit", async (e) => {
@@ -496,16 +506,16 @@ function setupEventHandlers() {
         const tags = tagsStr.split(",").map(t => t.trim()).filter(Boolean);
 
         try {
-            const response = await callConnectRPC("CreateNote", {
+            await callConnectRPC("CreateNote", {
                 title,
                 category,
                 tags,
                 bodyMarkdown
             });
-            
+
             showToast("Note created successfully!", "success");
             createNoteForm.reset();
-            
+
             // Switch to list notes and refresh
             const tabList = document.querySelector<HTMLElement>("[data-op-tab='list']");
             if (tabList) tabList.click();
@@ -569,21 +579,33 @@ function setupEventHandlers() {
     });
 }
 
+// loadAppConfig asks the notes-server how authentication works.
+async function loadAppConfig() {
+    try {
+        const res = await fetch("/config");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const cfg = await res.json();
+        authMode = cfg.authMode === "dev" ? "dev" : "jwt";
+        authBaseUrl = (cfg.authBaseUrl || "").replace(/\/+$/, "");
+        manageTokensLink.href = `${authBaseUrl}/tokens.html`;
+        logToConsole(`Config loaded: authMode=${authMode}${authMode === "jwt" ? `, authBaseUrl=${authBaseUrl}` : ""}`);
+    } catch (e: any) {
+        logToConsole(`Failed to load /config (${e.message}), assuming jwt mode.`, true);
+    }
+}
+
 // On Page Load
-window.addEventListener("DOMContentLoaded", () => {
+window.addEventListener("DOMContentLoaded", async () => {
     initTabNavigation();
     setupEventHandlers();
-    
-    // Check if we have standard params in URL callback (e.g. from OAuth callbacks, although not directly used, nice to log)
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.has("token") || urlParams.has("jwt")) {
-        const token = urlParams.get("token") || urlParams.get("jwt") || "";
-        if (token) {
-            setToken(token, "jwt");
-            window.history.replaceState({}, document.title, window.location.pathname);
-            showToast("JWT token extracted from URL callback!", "success");
-        }
-    } else {
-        updateAuthStateUI();
+
+    await loadAppConfig();
+    updateAuthStateUI();
+
+    if (authMode === "jwt") {
+        // Silent SSO: try to mint a token from the existing session cookie.
+        // After the login redirect lands back here, this picks the session up.
+        const ok = await mintToken();
+        if (ok) fetchNotesList();
     }
 });

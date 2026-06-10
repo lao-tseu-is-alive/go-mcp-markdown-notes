@@ -173,6 +173,14 @@ Claude Desktop (`claude_desktop_config.json`):
 }
 ```
 
+To rotate the token (compromised or expired PAT): revoke it in `tokens.html`,
+create a new one, then re-register:
+
+```bash
+claude mcp remove notes
+claude mcp add notes -e NOTES_SERVER=http://127.0.0.1:8080 -e NOTES_TOKEN=pat_...new... -- /path/to/go-mcp-markdown-notes/bin/notes-mcp
+```
+
 Then ask things like *“create a note titled X”*, *“search my notes about
 docker”*, *“delete that note”*. Authentication design details:
 [pkg/mcpnotes/mcp_auth_design.md](./pkg/mcpnotes/mcp_auth_design.md).

@@ -34,3 +34,4 @@ proto_third_party/*
 **/node_modules
 /openapitools.json
 /how_to_add_mcp_to_claude.txt
+/.ogcode/ogcode.db

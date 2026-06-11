@@ -17,6 +17,7 @@ const (
 	defaultAuthServerURL  = "http://localhost:9090"
 	defaultShutdownPeriod = 10 * time.Second
 	defaultMaxConnections = 10
+	defaultRequestTimeout = 10 * time.Second
 )
 
 type serverConfig struct {
@@ -31,6 +32,7 @@ type serverConfig struct {
 	LogLevel       slog.Level
 	MaxConnections int32
 	ShutdownPeriod time.Duration
+	RequestTimeout time.Duration
 }
 
 func loadConfig() (serverConfig, error) {
@@ -66,6 +68,10 @@ func loadConfig() (serverConfig, error) {
 	if err != nil || shutdownSeconds < 1 || shutdownSeconds > 300 {
 		return serverConfig{}, fmt.Errorf("NOTES_SHUTDOWN_TIMEOUT_SECONDS must be between 1 and 300")
 	}
+	requestTimeoutSeconds, err := envInt64("NOTES_REQUEST_TIMEOUT_SECONDS", int64(defaultRequestTimeout/time.Second))
+	if err != nil || requestTimeoutSeconds < 1 || requestTimeoutSeconds > 300 {
+		return serverConfig{}, fmt.Errorf("NOTES_REQUEST_TIMEOUT_SECONDS must be between 1 and 300")
+	}
 	logLevel, err := parseLogLevel(envOrDefault("LOG_LEVEL", "info"))
 	if err != nil {
 		return serverConfig{}, err
@@ -83,6 +89,7 @@ func loadConfig() (serverConfig, error) {
 		LogLevel:       logLevel,
 		MaxConnections: int32(maxConnections),
 		ShutdownPeriod: time.Duration(shutdownSeconds) * time.Second,
+		RequestTimeout: time.Duration(requestTimeoutSeconds) * time.Second,
 	}
 	if config.AuthMode == "dev" && config.DevToken == "" {
 		return serverConfig{}, fmt.Errorf("NOTES_DEV_TOKEN is required when NOTES_AUTH_MODE=dev")

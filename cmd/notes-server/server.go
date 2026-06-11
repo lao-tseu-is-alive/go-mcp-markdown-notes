@@ -70,7 +70,10 @@ func newApplication(ctx context.Context, config serverConfig, log *slog.Logger) 
 	if err != nil {
 		return nil, err
 	}
-	interceptor := connect.WithInterceptors(authadapter.NewInterceptor(verifier, log))
+	interceptor := connect.WithInterceptors(
+		notes.NewTimeoutInterceptor(config.RequestTimeout),
+		authadapter.NewInterceptor(verifier, log),
+	)
 	path, notesHandler := notesv1connect.NewNotesServiceHandler(connectServer, interceptor)
 
 	mux := http.NewServeMux()

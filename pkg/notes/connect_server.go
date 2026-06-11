@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/google/uuid"
@@ -22,6 +23,18 @@ type ConnectServer struct {
 	service *Service
 	log     *slog.Logger
 	notesv1connect.UnimplementedNotesServiceHandler
+}
+
+// NewTimeoutInterceptor returns a Connect interceptor that enforces a hard
+// server-side deadline on every RPC, regardless of client behaviour.
+func NewTimeoutInterceptor(d time.Duration) connect.Interceptor {
+	return connect.UnaryInterceptorFunc(func(next connect.UnaryFunc) connect.UnaryFunc {
+		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+			ctx, cancel := context.WithTimeout(ctx, d)
+			defer cancel()
+			return next(ctx, req)
+		}
+	})
 }
 
 func NewConnectServer(service *Service, log *slog.Logger) (*ConnectServer, error) {

@@ -1,1 +1,0 @@
-/home/cgil/AGENT.md

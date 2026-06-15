@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	notesv1 "github.com/lao-tseu-is-alive/go-mcp-markdown-notes/gen/notes/v1"
 	"github.com/lao-tseu-is-alive/go-mcp-markdown-notes/gen/notes/v1/notesv1connect"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // NoteOutput is the JSON shape of a note returned by every tool.
@@ -33,9 +35,16 @@ func protoNoteToOutput(n *notesv1.Note) NoteOutput {
 		BodyMarkdown: n.BodyMarkdown,
 		Category:     n.Category,
 		Tags:         n.Tags,
-		CreatedAt:    n.CreatedAt,
-		UpdatedAt:    n.UpdatedAt,
+		CreatedAt:    protoTimestampToString(n.CreatedAt),
+		UpdatedAt:    protoTimestampToString(n.UpdatedAt),
 	}
+}
+
+func protoTimestampToString(ts *timestamppb.Timestamp) string {
+	if ts == nil || ts.CheckValid() != nil {
+		return ""
+	}
+	return ts.AsTime().UTC().Format(time.RFC3339Nano)
 }
 
 func protoNotesToOutput(notes []*notesv1.Note) []NoteOutput {

@@ -4,11 +4,17 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
+	connectvalidate "connectrpc.com/validate"
 	"github.com/google/uuid"
 	notesv1 "github.com/lao-tseu-is-alive/go-mcp-markdown-notes/gen/notes/v1"
+	"github.com/lao-tseu-is-alive/go-mcp-markdown-notes/gen/notes/v1/notesv1connect"
 	"github.com/lao-tseu-is-alive/go-mcp-markdown-notes/pkg/authadapter"
 )
 
@@ -76,6 +82,55 @@ func TestConnectServerDeleteNote(t *testing.T) {
 	repository.err = ErrNoteNotFound
 	_, err = server.DeleteNote(ctx, connect.NewRequest(&notesv1.DeleteNoteRequest{NoteId: noteID.String()}))
 	assertConnectCode(t, err, connect.CodeNotFound)
+}
+
+func TestConnectHandlerValidatesProtoRequests(t *testing.T) {
+	repository := &recordingRepository{note: &Note{
+		ID:           uuid.New(),
+		OwnerUserID:  71,
+		Title:        "test",
+		BodyMarkdown: "",
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}}
+	service := newTestService(t, repository)
+	server, err := NewConnectServer(service, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verifier, err := authadapter.NewDevTokenVerifier("test-token", authadapter.AuthenticatedUser{
+		AppUserID: 71,
+		Scopes:    []string{ScopeWrite},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	path, handler := notesv1connect.NewNotesServiceHandler(server, connect.WithInterceptors(
+		authadapter.NewInterceptor(verifier, slog.New(slog.NewTextHandler(io.Discard, nil))),
+		connectvalidate.NewInterceptor(connectvalidate.WithValidateResponses()),
+	))
+	wantPath := "/" + notesv1connect.NotesServiceName + "/"
+	if path != wantPath {
+		t.Fatalf("handler path = %q, want %q", path, wantPath)
+	}
+
+	noteID := uuid.NewString()
+	req := httptest.NewRequest(
+		http.MethodPost,
+		notesv1connect.NotesServiceAddTagsProcedure,
+		strings.NewReader(`{"noteId":"`+noteID+`","tags":["go","go"]}`),
+	)
+	req.Header.Set("Authorization", "Bearer test-token")
+	req.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, req)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d; body: %s", response.Code, http.StatusBadRequest, response.Body.String())
+	}
+	if repository.ownerUserID != 0 {
+		t.Fatalf("request reached repository with owner %d, want validation to short-circuit", repository.ownerUserID)
+	}
 }
 
 func assertConnectCode(t *testing.T, err error, want connect.Code) {

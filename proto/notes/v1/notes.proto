@@ -4,6 +4,10 @@ package notes.v1;
 
 option go_package = "github.com/lao-tseu-is-alive/go-mcp-markdown-notes/gen/notes/v1;notesv1";
 
+import "buf/validate/validate.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/timestamp.proto";
+
 service NotesService {
   rpc CreateNote(CreateNoteRequest) returns (CreateNoteResponse);
   rpc GetNote(GetNoteRequest) returns (GetNoteResponse);
@@ -14,22 +18,46 @@ service NotesService {
   rpc DeleteNote(DeleteNoteRequest) returns (DeleteNoteResponse);
 }
 
+// Core entity
 message Note {
-  string id = 1;
-  string title = 2;
-  string body_markdown = 3;
-  string category = 4;
-  repeated string tags = 5;
-  string created_at = 6;
-  string updated_at = 7;
-  string owner_user_id = 8;
+  string id = 1 [(google.api.field_behavior) = REQUIRED, (buf.validate.field).string.uuid = true];
+
+  string title = 2 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 200
+  ];
+
+  string body_markdown = 3 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string.max_len = 200000
+  ];
+
+  string category = 4 [
+    (buf.validate.field).string.max_len = 100
+  ];
+
+  repeated string tags = 5 [
+    (buf.validate.field).repeated.max_items = 20,
+    (buf.validate.field).repeated.unique = true
+  ];
+
+  google.protobuf.Timestamp created_at = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
+  google.protobuf.Timestamp updated_at = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
+
+  string owner_user_id = 8 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string.pattern = "^[1-9][0-9]*$"
+  ];
 }
 
+// === Requests ===
+
 message CreateNoteRequest {
-  string title = 1;
-  string body_markdown = 2;
-  string category = 3;
-  repeated string tags = 4;
+  string title = 1 [(google.api.field_behavior) = REQUIRED, (buf.validate.field).string.min_len = 1, (buf.validate.field).string.max_len = 200];
+  string body_markdown = 2 [(google.api.field_behavior) = REQUIRED, (buf.validate.field).string.max_len = 200000];
+  string category = 3 [(buf.validate.field).string.max_len = 100];
+  repeated string tags = 4 [(buf.validate.field).repeated.max_items = 20];
 }
 
 message CreateNoteResponse {
@@ -37,7 +65,7 @@ message CreateNoteResponse {
 }
 
 message GetNoteRequest {
-  string id = 1;
+  string id = 1 [(google.api.field_behavior) = REQUIRED, (buf.validate.field).string.uuid = true];
 }
 
 message GetNoteResponse {
@@ -45,18 +73,19 @@ message GetNoteResponse {
 }
 
 message ListRecentNotesRequest {
-  int32 limit = 1;
+  int32 limit = 1 [(buf.validate.field).int32.gte = 0, (buf.validate.field).int32.lte = 50];
 }
 
 message ListRecentNotesResponse {
   repeated Note notes = 1;
 }
 
+
 message SearchNotesRequest {
-  string query = 1;
-  repeated string tags = 2;
-  string category = 3;
-  int32 limit = 4;
+  string query = 1 [(buf.validate.field).string.max_len = 500];
+  repeated string tags = 2 [(buf.validate.field).repeated.max_items = 10];
+  string category = 3 [(buf.validate.field).string.max_len = 100];
+  int32 limit = 4 [(buf.validate.field).int32.gte = 0, (buf.validate.field).int32.lte = 50];
 }
 
 message SearchNotesResponse {
@@ -64,8 +93,13 @@ message SearchNotesResponse {
 }
 
 message AddTagsRequest {
-  string note_id = 1;
-  repeated string tags = 2;
+  string note_id = 1 [(google.api.field_behavior) = REQUIRED, (buf.validate.field).string.uuid = true];
+  repeated string tags = 2 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).repeated.min_items = 1,
+    (buf.validate.field).repeated.max_items = 20,
+    (buf.validate.field).repeated.unique = true
+  ];
 }
 
 message AddTagsResponse {
@@ -73,11 +107,16 @@ message AddTagsResponse {
 }
 
 message UpdateNoteRequest {
-  string note_id = 1;
-  string title = 2;
-  string body_markdown = 3;
-  string category = 4;
-  repeated string tags = 5;
+  string note_id = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string.uuid = true
+  ];
+
+  // Full replacement update. An empty body/category is allowed; title is required.
+  string title = 2 [(buf.validate.field).string.min_len = 1, (buf.validate.field).string.max_len = 200];
+  string body_markdown = 3 [(buf.validate.field).string.max_len = 200000];
+  string category = 4 [(buf.validate.field).string.max_len = 100];
+  repeated string tags = 5 [(buf.validate.field).repeated.max_items = 20];
 }
 
 message UpdateNoteResponse {
@@ -85,7 +124,7 @@ message UpdateNoteResponse {
 }
 
 message DeleteNoteRequest {
-  string note_id = 1;
+  string note_id = 1 [(google.api.field_behavior) = REQUIRED, (buf.validate.field).string.uuid = true];
 }
 
 message DeleteNoteResponse {}

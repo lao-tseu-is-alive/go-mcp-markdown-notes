@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	connectvalidate "connectrpc.com/validate"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/lao-tseu-is-alive/go-cloud-k8s-common-libs/pkg/goHttpEcho"
 	"github.com/lao-tseu-is-alive/go-mcp-markdown-notes/gen/notes/v1/notesv1connect"
@@ -73,6 +74,7 @@ func newApplication(ctx context.Context, config serverConfig, log *slog.Logger) 
 	interceptor := connect.WithInterceptors(
 		notes.NewTimeoutInterceptor(config.RequestTimeout),
 		authadapter.NewInterceptor(verifier, log),
+		connectvalidate.NewInterceptor(connectvalidate.WithValidateResponses()),
 	)
 	path, notesHandler := notesv1connect.NewNotesServiceHandler(connectServer, interceptor)
 

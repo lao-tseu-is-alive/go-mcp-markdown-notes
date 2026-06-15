@@ -12,6 +12,7 @@ import (
 
 	"connectrpc.com/connect"
 	v1 "github.com/lao-tseu-is-alive/go-mcp-markdown-notes/gen/notes/v1"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func main() {
@@ -272,13 +273,20 @@ func printNoteText(note *v1.Note) {
 	if len(note.Tags) > 0 {
 		fmt.Printf("\033[1;36m| TAGS:\033[0m    \033[1;35m%-60s\033[0m \033[1;36m|\033[0m\n", strings.Join(note.Tags, ", "))
 	}
-	fmt.Printf("\033[1;36m| CREATED:\033[0m %-60s \033[1;36m|\033[0m\n", note.CreatedAt)
-	fmt.Printf("\033[1;36m| UPDATED:\033[0m %-60s \033[1;36m|\033[0m\n", note.UpdatedAt)
+	fmt.Printf("\033[1;36m| CREATED:\033[0m %-60s \033[1;36m|\033[0m\n", protoTimestampToString(note.CreatedAt))
+	fmt.Printf("\033[1;36m| UPDATED:\033[0m %-60s \033[1;36m|\033[0m\n", protoTimestampToString(note.UpdatedAt))
 	if note.OwnerUserId != "" {
 		fmt.Printf("\033[1;36m| OWNER ID:\033[0m%-60s \033[1;36m|\033[0m\n", note.OwnerUserId)
 	}
 	fmt.Printf("\033[1;36m+----------------------------------------------------------------------+\033[0m\n")
 	fmt.Printf("\033[1mBody:\033[0m\n%s\n\n", note.BodyMarkdown)
+}
+
+func protoTimestampToString(ts *timestamppb.Timestamp) string {
+	if ts == nil || ts.CheckValid() != nil {
+		return ""
+	}
+	return ts.AsTime().UTC().Format(time.RFC3339Nano)
 }
 
 func printNotesListText(notes []*v1.Note) {

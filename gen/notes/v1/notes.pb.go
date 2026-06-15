@@ -7,8 +7,11 @@
 package notesv1
 
 import (
+	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
+	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -21,6 +24,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Core entity
 type Note struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -28,8 +32,8 @@ type Note struct {
 	BodyMarkdown  string                 `protobuf:"bytes,3,opt,name=body_markdown,json=bodyMarkdown,proto3" json:"body_markdown,omitempty"`
 	Category      string                 `protobuf:"bytes,4,opt,name=category,proto3" json:"category,omitempty"`
 	Tags          []string               `protobuf:"bytes,5,rep,name=tags,proto3" json:"tags,omitempty"`
-	CreatedAt     string                 `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt     string                 `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	OwnerUserId   string                 `protobuf:"bytes,8,opt,name=owner_user_id,json=ownerUserId,proto3" json:"owner_user_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -100,18 +104,18 @@ func (x *Note) GetTags() []string {
 	return nil
 }
 
-func (x *Note) GetCreatedAt() string {
+func (x *Note) GetCreatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.CreatedAt
 	}
-	return ""
+	return nil
 }
 
-func (x *Note) GetUpdatedAt() string {
+func (x *Note) GetUpdatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.UpdatedAt
 	}
-	return ""
+	return nil
 }
 
 func (x *Note) GetOwnerUserId() string {
@@ -618,12 +622,13 @@ func (x *AddTagsResponse) GetNote() *Note {
 }
 
 type UpdateNoteRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	NoteId        string                 `protobuf:"bytes,1,opt,name=note_id,json=noteId,proto3" json:"note_id,omitempty"`
-	Title         string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
-	BodyMarkdown  string                 `protobuf:"bytes,3,opt,name=body_markdown,json=bodyMarkdown,proto3" json:"body_markdown,omitempty"`
-	Category      string                 `protobuf:"bytes,4,opt,name=category,proto3" json:"category,omitempty"`
-	Tags          []string               `protobuf:"bytes,5,rep,name=tags,proto3" json:"tags,omitempty"`
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	NoteId string                 `protobuf:"bytes,1,opt,name=note_id,json=noteId,proto3" json:"note_id,omitempty"`
+	// Full replacement update. An empty body/category is allowed; title is required.
+	Title         string   `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	BodyMarkdown  string   `protobuf:"bytes,3,opt,name=body_markdown,json=bodyMarkdown,proto3" json:"body_markdown,omitempty"`
+	Category      string   `protobuf:"bytes,4,opt,name=category,proto3" json:"category,omitempty"`
+	Tags          []string `protobuf:"bytes,5,rep,name=tags,proto3" json:"tags,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -821,55 +826,58 @@ var File_notes_v1_notes_proto protoreflect.FileDescriptor
 
 const file_notes_v1_notes_proto_rawDesc = "" +
 	"\n" +
-	"\x14notes/v1/notes.proto\x12\bnotes.v1\"\xe3\x01\n" +
-	"\x04Note\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
-	"\x05title\x18\x02 \x01(\tR\x05title\x12#\n" +
-	"\rbody_markdown\x18\x03 \x01(\tR\fbodyMarkdown\x12\x1a\n" +
-	"\bcategory\x18\x04 \x01(\tR\bcategory\x12\x12\n" +
-	"\x04tags\x18\x05 \x03(\tR\x04tags\x12\x1d\n" +
+	"\x14notes/v1/notes.proto\x12\bnotes.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xfd\x02\n" +
+	"\x04Note\x12\x1b\n" +
+	"\x02id\x18\x01 \x01(\tB\v\xe0A\x02\xbaH\x05r\x03\xb0\x01\x01R\x02id\x12#\n" +
+	"\x05title\x18\x02 \x01(\tB\r\xe0A\x02\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x05title\x121\n" +
+	"\rbody_markdown\x18\x03 \x01(\tB\f\xe0A\x02\xbaH\x06r\x04\x18\xc0\x9a\fR\fbodyMarkdown\x12#\n" +
+	"\bcategory\x18\x04 \x01(\tB\a\xbaH\x04r\x02\x18dR\bcategory\x12\x1e\n" +
+	"\x04tags\x18\x05 \x03(\tB\n" +
+	"\xbaH\a\x92\x01\x04\x10\x14\x18\x01R\x04tags\x12>\n" +
 	"\n" +
-	"created_at\x18\x06 \x01(\tR\tcreatedAt\x12\x1d\n" +
+	"created_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampB\x03\xe0A\x03R\tcreatedAt\x12>\n" +
 	"\n" +
-	"updated_at\x18\a \x01(\tR\tupdatedAt\x12\"\n" +
-	"\rowner_user_id\x18\b \x01(\tR\vownerUserId\"~\n" +
-	"\x11CreateNoteRequest\x12\x14\n" +
-	"\x05title\x18\x01 \x01(\tR\x05title\x12#\n" +
-	"\rbody_markdown\x18\x02 \x01(\tR\fbodyMarkdown\x12\x1a\n" +
-	"\bcategory\x18\x03 \x01(\tR\bcategory\x12\x12\n" +
-	"\x04tags\x18\x04 \x03(\tR\x04tags\"8\n" +
+	"updated_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampB\x03\xe0A\x03R\tupdatedAt\x12;\n" +
+	"\rowner_user_id\x18\b \x01(\tB\x17\xe0A\x02\xbaH\x11r\x0f2\r^[1-9][0-9]*$R\vownerUserId\"\xae\x01\n" +
+	"\x11CreateNoteRequest\x12#\n" +
+	"\x05title\x18\x01 \x01(\tB\r\xe0A\x02\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x05title\x121\n" +
+	"\rbody_markdown\x18\x02 \x01(\tB\f\xe0A\x02\xbaH\x06r\x04\x18\xc0\x9a\fR\fbodyMarkdown\x12#\n" +
+	"\bcategory\x18\x03 \x01(\tB\a\xbaH\x04r\x02\x18dR\bcategory\x12\x1c\n" +
+	"\x04tags\x18\x04 \x03(\tB\b\xbaH\x05\x92\x01\x02\x10\x14R\x04tags\"8\n" +
 	"\x12CreateNoteResponse\x12\"\n" +
-	"\x04note\x18\x01 \x01(\v2\x0e.notes.v1.NoteR\x04note\" \n" +
-	"\x0eGetNoteRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"5\n" +
+	"\x04note\x18\x01 \x01(\v2\x0e.notes.v1.NoteR\x04note\"-\n" +
+	"\x0eGetNoteRequest\x12\x1b\n" +
+	"\x02id\x18\x01 \x01(\tB\v\xe0A\x02\xbaH\x05r\x03\xb0\x01\x01R\x02id\"5\n" +
 	"\x0fGetNoteResponse\x12\"\n" +
-	"\x04note\x18\x01 \x01(\v2\x0e.notes.v1.NoteR\x04note\".\n" +
-	"\x16ListRecentNotesRequest\x12\x14\n" +
-	"\x05limit\x18\x01 \x01(\x05R\x05limit\"?\n" +
+	"\x04note\x18\x01 \x01(\v2\x0e.notes.v1.NoteR\x04note\"9\n" +
+	"\x16ListRecentNotesRequest\x12\x1f\n" +
+	"\x05limit\x18\x01 \x01(\x05B\t\xbaH\x06\x1a\x04\x182(\x00R\x05limit\"?\n" +
 	"\x17ListRecentNotesResponse\x12$\n" +
-	"\x05notes\x18\x01 \x03(\v2\x0e.notes.v1.NoteR\x05notes\"p\n" +
-	"\x12SearchNotesRequest\x12\x14\n" +
-	"\x05query\x18\x01 \x01(\tR\x05query\x12\x12\n" +
-	"\x04tags\x18\x02 \x03(\tR\x04tags\x12\x1a\n" +
-	"\bcategory\x18\x03 \x01(\tR\bcategory\x12\x14\n" +
-	"\x05limit\x18\x04 \x01(\x05R\x05limit\";\n" +
+	"\x05notes\x18\x01 \x03(\v2\x0e.notes.v1.NoteR\x05notes\"\x98\x01\n" +
+	"\x12SearchNotesRequest\x12\x1e\n" +
+	"\x05query\x18\x01 \x01(\tB\b\xbaH\x05r\x03\x18\xf4\x03R\x05query\x12\x1c\n" +
+	"\x04tags\x18\x02 \x03(\tB\b\xbaH\x05\x92\x01\x02\x10\n" +
+	"R\x04tags\x12#\n" +
+	"\bcategory\x18\x03 \x01(\tB\a\xbaH\x04r\x02\x18dR\bcategory\x12\x1f\n" +
+	"\x05limit\x18\x04 \x01(\x05B\t\xbaH\x06\x1a\x04\x182(\x00R\x05limit\";\n" +
 	"\x13SearchNotesResponse\x12$\n" +
-	"\x05notes\x18\x01 \x03(\v2\x0e.notes.v1.NoteR\x05notes\"=\n" +
-	"\x0eAddTagsRequest\x12\x17\n" +
-	"\anote_id\x18\x01 \x01(\tR\x06noteId\x12\x12\n" +
-	"\x04tags\x18\x02 \x03(\tR\x04tags\"5\n" +
+	"\x05notes\x18\x01 \x03(\v2\x0e.notes.v1.NoteR\x05notes\"[\n" +
+	"\x0eAddTagsRequest\x12$\n" +
+	"\anote_id\x18\x01 \x01(\tB\v\xe0A\x02\xbaH\x05r\x03\xb0\x01\x01R\x06noteId\x12#\n" +
+	"\x04tags\x18\x02 \x03(\tB\x0f\xe0A\x02\xbaH\t\x92\x01\x06\b\x01\x10\x14\x18\x01R\x04tags\"5\n" +
 	"\x0fAddTagsResponse\x12\"\n" +
-	"\x04note\x18\x01 \x01(\v2\x0e.notes.v1.NoteR\x04note\"\x97\x01\n" +
-	"\x11UpdateNoteRequest\x12\x17\n" +
-	"\anote_id\x18\x01 \x01(\tR\x06noteId\x12\x14\n" +
-	"\x05title\x18\x02 \x01(\tR\x05title\x12#\n" +
-	"\rbody_markdown\x18\x03 \x01(\tR\fbodyMarkdown\x12\x1a\n" +
-	"\bcategory\x18\x04 \x01(\tR\bcategory\x12\x12\n" +
-	"\x04tags\x18\x05 \x03(\tR\x04tags\"8\n" +
+	"\x04note\x18\x01 \x01(\v2\x0e.notes.v1.NoteR\x04note\"\xce\x01\n" +
+	"\x11UpdateNoteRequest\x12$\n" +
+	"\anote_id\x18\x01 \x01(\tB\v\xe0A\x02\xbaH\x05r\x03\xb0\x01\x01R\x06noteId\x12 \n" +
+	"\x05title\x18\x02 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x05title\x12.\n" +
+	"\rbody_markdown\x18\x03 \x01(\tB\t\xbaH\x06r\x04\x18\xc0\x9a\fR\fbodyMarkdown\x12#\n" +
+	"\bcategory\x18\x04 \x01(\tB\a\xbaH\x04r\x02\x18dR\bcategory\x12\x1c\n" +
+	"\x04tags\x18\x05 \x03(\tB\b\xbaH\x05\x92\x01\x02\x10\x14R\x04tags\"8\n" +
 	"\x12UpdateNoteResponse\x12\"\n" +
-	"\x04note\x18\x01 \x01(\v2\x0e.notes.v1.NoteR\x04note\",\n" +
-	"\x11DeleteNoteRequest\x12\x17\n" +
-	"\anote_id\x18\x01 \x01(\tR\x06noteId\"\x14\n" +
+	"\x04note\x18\x01 \x01(\v2\x0e.notes.v1.NoteR\x04note\"9\n" +
+	"\x11DeleteNoteRequest\x12$\n" +
+	"\anote_id\x18\x01 \x01(\tB\v\xe0A\x02\xbaH\x05r\x03\xb0\x01\x01R\x06noteId\"\x14\n" +
 	"\x12DeleteNoteResponse2\x8d\x04\n" +
 	"\fNotesService\x12G\n" +
 	"\n" +
@@ -914,33 +922,36 @@ var file_notes_v1_notes_proto_goTypes = []any{
 	(*UpdateNoteResponse)(nil),      // 12: notes.v1.UpdateNoteResponse
 	(*DeleteNoteRequest)(nil),       // 13: notes.v1.DeleteNoteRequest
 	(*DeleteNoteResponse)(nil),      // 14: notes.v1.DeleteNoteResponse
+	(*timestamppb.Timestamp)(nil),   // 15: google.protobuf.Timestamp
 }
 var file_notes_v1_notes_proto_depIdxs = []int32{
-	0,  // 0: notes.v1.CreateNoteResponse.note:type_name -> notes.v1.Note
-	0,  // 1: notes.v1.GetNoteResponse.note:type_name -> notes.v1.Note
-	0,  // 2: notes.v1.ListRecentNotesResponse.notes:type_name -> notes.v1.Note
-	0,  // 3: notes.v1.SearchNotesResponse.notes:type_name -> notes.v1.Note
-	0,  // 4: notes.v1.AddTagsResponse.note:type_name -> notes.v1.Note
-	0,  // 5: notes.v1.UpdateNoteResponse.note:type_name -> notes.v1.Note
-	1,  // 6: notes.v1.NotesService.CreateNote:input_type -> notes.v1.CreateNoteRequest
-	3,  // 7: notes.v1.NotesService.GetNote:input_type -> notes.v1.GetNoteRequest
-	5,  // 8: notes.v1.NotesService.ListRecentNotes:input_type -> notes.v1.ListRecentNotesRequest
-	7,  // 9: notes.v1.NotesService.SearchNotes:input_type -> notes.v1.SearchNotesRequest
-	9,  // 10: notes.v1.NotesService.AddTags:input_type -> notes.v1.AddTagsRequest
-	11, // 11: notes.v1.NotesService.UpdateNote:input_type -> notes.v1.UpdateNoteRequest
-	13, // 12: notes.v1.NotesService.DeleteNote:input_type -> notes.v1.DeleteNoteRequest
-	2,  // 13: notes.v1.NotesService.CreateNote:output_type -> notes.v1.CreateNoteResponse
-	4,  // 14: notes.v1.NotesService.GetNote:output_type -> notes.v1.GetNoteResponse
-	6,  // 15: notes.v1.NotesService.ListRecentNotes:output_type -> notes.v1.ListRecentNotesResponse
-	8,  // 16: notes.v1.NotesService.SearchNotes:output_type -> notes.v1.SearchNotesResponse
-	10, // 17: notes.v1.NotesService.AddTags:output_type -> notes.v1.AddTagsResponse
-	12, // 18: notes.v1.NotesService.UpdateNote:output_type -> notes.v1.UpdateNoteResponse
-	14, // 19: notes.v1.NotesService.DeleteNote:output_type -> notes.v1.DeleteNoteResponse
-	13, // [13:20] is the sub-list for method output_type
-	6,  // [6:13] is the sub-list for method input_type
-	6,  // [6:6] is the sub-list for extension type_name
-	6,  // [6:6] is the sub-list for extension extendee
-	0,  // [0:6] is the sub-list for field type_name
+	15, // 0: notes.v1.Note.created_at:type_name -> google.protobuf.Timestamp
+	15, // 1: notes.v1.Note.updated_at:type_name -> google.protobuf.Timestamp
+	0,  // 2: notes.v1.CreateNoteResponse.note:type_name -> notes.v1.Note
+	0,  // 3: notes.v1.GetNoteResponse.note:type_name -> notes.v1.Note
+	0,  // 4: notes.v1.ListRecentNotesResponse.notes:type_name -> notes.v1.Note
+	0,  // 5: notes.v1.SearchNotesResponse.notes:type_name -> notes.v1.Note
+	0,  // 6: notes.v1.AddTagsResponse.note:type_name -> notes.v1.Note
+	0,  // 7: notes.v1.UpdateNoteResponse.note:type_name -> notes.v1.Note
+	1,  // 8: notes.v1.NotesService.CreateNote:input_type -> notes.v1.CreateNoteRequest
+	3,  // 9: notes.v1.NotesService.GetNote:input_type -> notes.v1.GetNoteRequest
+	5,  // 10: notes.v1.NotesService.ListRecentNotes:input_type -> notes.v1.ListRecentNotesRequest
+	7,  // 11: notes.v1.NotesService.SearchNotes:input_type -> notes.v1.SearchNotesRequest
+	9,  // 12: notes.v1.NotesService.AddTags:input_type -> notes.v1.AddTagsRequest
+	11, // 13: notes.v1.NotesService.UpdateNote:input_type -> notes.v1.UpdateNoteRequest
+	13, // 14: notes.v1.NotesService.DeleteNote:input_type -> notes.v1.DeleteNoteRequest
+	2,  // 15: notes.v1.NotesService.CreateNote:output_type -> notes.v1.CreateNoteResponse
+	4,  // 16: notes.v1.NotesService.GetNote:output_type -> notes.v1.GetNoteResponse
+	6,  // 17: notes.v1.NotesService.ListRecentNotes:output_type -> notes.v1.ListRecentNotesResponse
+	8,  // 18: notes.v1.NotesService.SearchNotes:output_type -> notes.v1.SearchNotesResponse
+	10, // 19: notes.v1.NotesService.AddTags:output_type -> notes.v1.AddTagsResponse
+	12, // 20: notes.v1.NotesService.UpdateNote:output_type -> notes.v1.UpdateNoteResponse
+	14, // 21: notes.v1.NotesService.DeleteNote:output_type -> notes.v1.DeleteNoteResponse
+	15, // [15:22] is the sub-list for method output_type
+	8,  // [8:15] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_notes_v1_notes_proto_init() }

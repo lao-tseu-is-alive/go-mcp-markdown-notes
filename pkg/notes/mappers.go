@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	notesv1 "github.com/lao-tseu-is-alive/go-mcp-markdown-notes/gen/notes/v1"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func DomainNoteToProto(note *Note) *notesv1.Note {
@@ -20,8 +21,8 @@ func DomainNoteToProto(note *Note) *notesv1.Note {
 		BodyMarkdown: note.BodyMarkdown,
 		Category:     note.Category,
 		Tags:         append([]string(nil), note.Tags...),
-		CreatedAt:    note.CreatedAt.UTC().Format(time.RFC3339Nano),
-		UpdatedAt:    note.UpdatedAt.UTC().Format(time.RFC3339Nano),
+		CreatedAt:    timestamppb.New(note.CreatedAt),
+		UpdatedAt:    timestamppb.New(note.UpdatedAt),
 	}
 }
 
@@ -45,13 +46,13 @@ func ProtoNoteToDomain(note *notesv1.Note) (*Note, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse owner user ID: %w", err)
 	}
-	createdAt, err := time.Parse(time.RFC3339Nano, note.CreatedAt)
+	createdAt, err := protoTimestampToTime("created_at", note.CreatedAt)
 	if err != nil {
-		return nil, fmt.Errorf("parse created_at: %w", err)
+		return nil, err
 	}
-	updatedAt, err := time.Parse(time.RFC3339Nano, note.UpdatedAt)
+	updatedAt, err := protoTimestampToTime("updated_at", note.UpdatedAt)
 	if err != nil {
-		return nil, fmt.Errorf("parse updated_at: %w", err)
+		return nil, err
 	}
 	return &Note{
 		ID:           id,
@@ -63,4 +64,14 @@ func ProtoNoteToDomain(note *notesv1.Note) (*Note, error) {
 		CreatedAt:    createdAt,
 		UpdatedAt:    updatedAt,
 	}, nil
+}
+
+func protoTimestampToTime(name string, ts *timestamppb.Timestamp) (time.Time, error) {
+	if ts == nil {
+		return time.Time{}, fmt.Errorf("%s is required", name)
+	}
+	if err := ts.CheckValid(); err != nil {
+		return time.Time{}, fmt.Errorf("validate %s: %w", name, err)
+	}
+	return ts.AsTime(), nil
 }

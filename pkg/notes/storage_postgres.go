@@ -18,6 +18,7 @@ type PostgresRepository struct {
 	log  *slog.Logger
 }
 
+// NewPostgresRepository builds a PostgresRepository from an existing connection pool. A nil logger falls back to slog.Default.
 func NewPostgresRepository(pool *pgxpool.Pool, log *slog.Logger) (*PostgresRepository, error) {
 	if pool == nil {
 		return nil, fmt.Errorf("%w: PostgreSQL pool is required", ErrInvalidInput)
@@ -132,10 +133,12 @@ func (r *PostgresRepository) DeleteNote(ctx context.Context, ownerUserID int64, 
 	return nil
 }
 
+// execer is the subset of pgx.Tx used by insertTags so it can accept both a pool connection and a transaction.
 type execer interface {
 	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
 }
 
+// insertTags writes each tag as a row in note_tags within the caller's transaction, ignoring duplicate (note_id, tag) pairs.
 func insertTags(ctx context.Context, q execer, ownerUserID int64, noteID uuid.UUID, tags []string) error {
 	for _, tag := range tags {
 		if _, err := q.Exec(ctx, insertTagSQL, noteID, ownerUserID, tag); err != nil {
@@ -154,6 +157,7 @@ func scanNote(row pgx.Row) (*Note, error) {
 	return note, nil
 }
 
+// collectNotes drains the rows cursor into a slice, closing the cursor even on error.
 func collectNotes(rows pgx.Rows) ([]*Note, error) {
 	defer rows.Close()
 	notes := make([]*Note, 0)
@@ -170,6 +174,7 @@ func collectNotes(rows pgx.Rows) ([]*Note, error) {
 	return notes, nil
 }
 
+// mapNotFound translates pgx.ErrNoRows to the domain ErrNoteNotFound so callers don't depend on the pgx package.
 func mapNotFound(err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNoteNotFound

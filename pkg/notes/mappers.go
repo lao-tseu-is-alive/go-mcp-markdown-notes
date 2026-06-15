@@ -10,6 +10,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+// DomainNoteToProto converts a domain Note to its protobuf representation, copying the tags slice to avoid aliasing.
 func DomainNoteToProto(note *Note) *notesv1.Note {
 	if note == nil {
 		return nil
@@ -26,6 +27,7 @@ func DomainNoteToProto(note *Note) *notesv1.Note {
 	}
 }
 
+// DomainNotesToProto maps a slice of domain Notes to their protobuf equivalents.
 func DomainNotesToProto(notes []*Note) []*notesv1.Note {
 	result := make([]*notesv1.Note, 0, len(notes))
 	for _, note := range notes {
@@ -34,6 +36,7 @@ func DomainNotesToProto(notes []*Note) []*notesv1.Note {
 	return result
 }
 
+// ProtoNoteToDomain converts a protobuf Note to the domain model, validating IDs and timestamps.
 func ProtoNoteToDomain(note *notesv1.Note) (*Note, error) {
 	if note == nil {
 		return nil, nil

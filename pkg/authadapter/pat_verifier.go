@@ -72,6 +72,7 @@ func NewPatVerifier(authServerURL string) (*PatVerifier, error) {
 	}, nil
 }
 
+// VerifyBearerToken checks the in-memory cache first; on a miss it calls the introspection endpoint and caches a positive result.
 func (v *PatVerifier) VerifyBearerToken(ctx context.Context, token string) (*AuthenticatedUser, error) {
 	if !strings.HasPrefix(token, PatTokenPrefix) {
 		return nil, ErrInvalidToken
@@ -105,6 +106,7 @@ func (v *PatVerifier) VerifyBearerToken(ctx context.Context, token string) (*Aut
 	return &copied, nil
 }
 
+// cachedUser performs a read-lock lookup and returns a copy with an independent Scopes slice to prevent mutation of cached state.
 func (v *PatVerifier) cachedUser(key [32]byte) (*AuthenticatedUser, bool) {
 	v.mu.RLock()
 	entry, ok := v.cache[key]
@@ -117,6 +119,7 @@ func (v *PatVerifier) cachedUser(key [32]byte) (*AuthenticatedUser, bool) {
 	return &user, true
 }
 
+// introspect posts the token to the auth service introspection endpoint and decodes the response.
 func (v *PatVerifier) introspect(ctx context.Context, token string) (*introspectResponse, error) {
 	body, err := json.Marshal(introspectRequest{Token: token})
 	if err != nil {

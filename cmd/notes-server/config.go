@@ -20,6 +20,7 @@ const (
 	defaultRequestTimeout = 10 * time.Second
 )
 
+// serverConfig holds all runtime configuration for the notes-server, loaded from environment variables.
 type serverConfig struct {
 	ListenAddress  string
 	DatabaseURL    string
@@ -35,6 +36,7 @@ type serverConfig struct {
 	RequestTimeout time.Duration
 }
 
+// loadConfig reads and validates all environment variables, returning a fully populated serverConfig or an error describing the first invalid value.
 func loadConfig() (serverConfig, error) {
 	databaseURL, err := databaseURLFromEnv()
 	if err != nil {
@@ -97,6 +99,7 @@ func loadConfig() (serverConfig, error) {
 	return config, nil
 }
 
+// databaseURLFromEnv builds a PostgreSQL connection string from DATABASE_URL if set, or from individual DB_* variables as a fallback.
 func databaseURLFromEnv() (string, error) {
 	if value := strings.TrimSpace(os.Getenv("DATABASE_URL")); value != "" {
 		parsed, err := url.Parse(value)
@@ -131,6 +134,7 @@ func envOrDefault(name, fallback string) string {
 	return fallback
 }
 
+// envInt64 parses an integer environment variable, returning fallback when the variable is absent.
 func envInt64(name string, fallback int64) (int64, error) {
 	raw := strings.TrimSpace(os.Getenv(name))
 	if raw == "" {

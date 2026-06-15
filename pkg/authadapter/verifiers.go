@@ -10,6 +10,7 @@ import (
 	"github.com/lao-tseu-is-alive/go-cloud-k8s-common-libs/pkg/goHttpEcho"
 )
 
+// ErrInvalidToken is returned by any TokenVerifier when the supplied token cannot be validated.
 var ErrInvalidToken = errors.New("invalid bearer token")
 
 // JWTVerifier adapts the JWT format issued by go-cloud-k8s-auth to the notes
@@ -19,6 +20,7 @@ type JWTVerifier struct {
 	defaultScopes []string
 }
 
+// NewJWTVerifier wraps the shared-secret JWT checker from go-cloud-k8s-common-libs and applies defaultScopes to every verified user.
 func NewJWTVerifier(checker goHttpEcho.JwtChecker, defaultScopes []string) (*JWTVerifier, error) {
 	if checker == nil {
 		return nil, errors.New("JWT checker is required")
@@ -29,6 +31,8 @@ func NewJWTVerifier(checker goHttpEcho.JwtChecker, defaultScopes []string) (*JWT
 	}, nil
 }
 
+// VerifyBearerToken parses and validates the JWT, promoting admin users to the "notes:admin" scope.
+// The deferred recover converts panics from the upstream JWT checker into ErrInvalidToken.
 func (v *JWTVerifier) VerifyBearerToken(_ context.Context, token string) (user *AuthenticatedUser, err error) {
 	defer func() {
 		if recover() != nil {
@@ -59,6 +63,7 @@ type DevTokenVerifier struct {
 	user  AuthenticatedUser
 }
 
+// NewDevTokenVerifier creates a verifier that accepts exactly one static token. Must not be used outside NOTES_AUTH_MODE=dev.
 func NewDevTokenVerifier(token string, user AuthenticatedUser) (*DevTokenVerifier, error) {
 	if token == "" {
 		return nil, errors.New("development token is required")
@@ -70,6 +75,7 @@ func NewDevTokenVerifier(token string, user AuthenticatedUser) (*DevTokenVerifie
 	return &DevTokenVerifier{token: token, user: user}, nil
 }
 
+// VerifyBearerToken accepts the token only when it matches the configured dev secret via a constant-time comparison.
 func (v *DevTokenVerifier) VerifyBearerToken(_ context.Context, token string) (*AuthenticatedUser, error) {
 	if subtle.ConstantTimeCompare([]byte(token), []byte(v.token)) != 1 {
 		return nil, ErrInvalidToken

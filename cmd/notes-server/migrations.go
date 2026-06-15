@@ -17,6 +17,8 @@ import (
 //go:embed db/migrations/*.sql
 var migrationFiles embed.FS
 
+// runMigrations applies all embedded SQL migrations that have not yet been recorded in schema_migrations.
+// It acquires a PostgreSQL advisory lock on startup so only one server instance migrates at a time.
 func runMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 	if pool == nil {
 		return fmt.Errorf("migration pool is required")
@@ -74,6 +76,7 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 	return nil
 }
 
+// migrationVersion extracts the version prefix (everything before the first underscore) from a migration file's base name.
 func migrationVersion(path string) string {
 	base := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
 	version, _, found := strings.Cut(base, "_")
@@ -83,6 +86,7 @@ func migrationVersion(path string) string {
 	return base
 }
 
+// applyMigration runs the supplied SQL statements in a single transaction and records the version in schema_migrations on commit.
 func applyMigration(ctx context.Context, conn *pgx.Conn, version string, statements []string) error {
 	tx, err := conn.Begin(ctx)
 	if err != nil {
@@ -103,6 +107,8 @@ func applyMigration(ctx context.Context, conn *pgx.Conn, version string, stateme
 	return nil
 }
 
+// parseDBMateUp extracts the SQL statements from the "-- migrate:up" section of a DBMate migration file.
+// Multi-statement blocks delimited by "-- migrate:statementbegin / end" are emitted as a single string.
 func parseDBMateUp(content string) ([]string, error) {
 	const (
 		upMarker             = "-- migrate:up"
@@ -164,6 +170,7 @@ func parseDBMateUp(content string) ([]string, error) {
 	return statements, nil
 }
 
+// containsSQL reports whether the statement contains at least one non-blank, non-comment line.
 func containsSQL(statement string) bool {
 	for _, line := range strings.Split(statement, "\n") {
 		trimmed := strings.TrimSpace(line)

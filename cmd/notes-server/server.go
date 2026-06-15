@@ -26,12 +26,15 @@ import (
 //go:embed notesFront/dist/*
 var frontendFiles embed.FS
 
+// application holds the shared resources for the notes server: the database pool, composed HTTP handler, and logger.
 type application struct {
 	pool    *pgxpool.Pool
 	handler http.Handler
 	log     *slog.Logger
 }
 
+// newApplication opens the database pool, runs schema migrations, wires all service layers, and returns a ready-to-serve application.
+// The pool is closed on any error path; the caller is responsible for calling application.close on success.
 func newApplication(ctx context.Context, config serverConfig, log *slog.Logger) (*application, error) {
 	poolConfig, err := pgxpool.ParseConfig(config.DatabaseURL)
 	if err != nil {
@@ -101,6 +104,8 @@ func newApplication(ctx context.Context, config serverConfig, log *slog.Logger) 
 	}, nil
 }
 
+// spaHandler serves static assets from the embedded FS and falls back to index.html for any path that does not match
+// an embedded file, enabling client-side routing in the SPA.
 func spaHandler(fileServer http.Handler, frontendFS fs.FS) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
@@ -126,6 +131,8 @@ func spaHandler(fileServer http.Handler, frontendFS fs.FS) http.HandlerFunc {
 	}
 }
 
+// buildTokenVerifier selects the appropriate TokenVerifier for the configured auth mode:
+// DevTokenVerifier for "dev", or a CompositeVerifier (JWT + PAT introspection) for "jwt".
 func buildTokenVerifier(config serverConfig, log *slog.Logger) (authadapter.TokenVerifier, error) {
 	scopes := []string{"notes:read", "notes:write", "notes:mcp"}
 	if config.AuthMode == "dev" {
@@ -153,10 +160,13 @@ func buildTokenVerifier(config serverConfig, log *slog.Logger) (authadapter.Toke
 	return authadapter.NewCompositeVerifier(jwtVerifier, patVerifier)
 }
 
+// close releases the database connection pool.
 func (a *application) close() {
 	a.pool.Close()
 }
 
+// serve starts the HTTP server on the provided listener and blocks until ctx is cancelled or the server fails.
+// On cancellation it initiates a graceful shutdown within shutdownPeriod before forcing a close.
 func (a *application) serve(ctx context.Context, listener net.Listener, shutdownPeriod time.Duration) error {
 	server := &http.Server{
 		Handler:           a.handler,
@@ -195,6 +205,7 @@ func healthHandler(writer http.ResponseWriter, _ *http.Request) {
 	writeJSON(writer, http.StatusOK, map[string]string{"status": "ok"})
 }
 
+// readinessHandler returns 503 when the database pool cannot be reached within 2 seconds, used by Kubernetes readiness probes.
 func readinessHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		ctx, cancel := context.WithTimeout(request.Context(), 2*time.Second)
@@ -235,6 +246,7 @@ func writeJSON(writer http.ResponseWriter, status int, value any) {
 	_ = json.NewEncoder(writer).Encode(value)
 }
 
+// requestLogMiddleware logs the HTTP method, path, and elapsed time for every request.
 func requestLogMiddleware(log *slog.Logger, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		started := time.Now()
@@ -243,6 +255,7 @@ func requestLogMiddleware(log *slog.Logger, next http.Handler) http.Handler {
 	})
 }
 
+// recoverMiddleware catches panics in downstream handlers, logs the stack trace, and returns a 500 JSON response.
 func recoverMiddleware(log *slog.Logger, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		defer func() {

@@ -9,10 +9,13 @@ import (
 	"connectrpc.com/connect"
 )
 
+// TokenVerifier validates a raw bearer token string and returns the corresponding authenticated user.
 type TokenVerifier interface {
 	VerifyBearerToken(context.Context, string) (*AuthenticatedUser, error)
 }
 
+// NewInterceptor returns a Connect unary interceptor that extracts the Authorization header, verifies the bearer token,
+// and stores the resulting user in the request context so handlers can call RequireUser.
 func NewInterceptor(verifier TokenVerifier, log *slog.Logger) connect.UnaryInterceptorFunc {
 	if log == nil {
 		log = slog.Default()

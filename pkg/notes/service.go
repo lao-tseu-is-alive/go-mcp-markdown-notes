@@ -12,12 +12,18 @@ import (
 )
 
 const (
+	// MaxTitleLength is the maximum number of Unicode code points allowed in a note title.
 	MaxTitleLength = 200
-	MaxBodyLength  = 200_000
-	MaxTags        = 20
-	MaxTagLength   = 50
-	DefaultLimit   = 10
-	MaxLimit       = 50
+	// MaxBodyLength is the maximum number of Unicode code points allowed in a note body.
+	MaxBodyLength = 200_000
+	// MaxTags is the maximum number of tags a single note may carry.
+	MaxTags = 20
+	// MaxTagLength is the maximum number of Unicode code points allowed in one tag.
+	MaxTagLength = 50
+	// DefaultLimit is the number of notes returned when the caller omits a limit.
+	DefaultLimit = 10
+	// MaxLimit is the upper bound on the number of notes that may be requested in a single call.
+	MaxLimit = 50
 )
 
 // Service contains transport-independent note business logic.
@@ -26,6 +32,7 @@ type Service struct {
 	log        *slog.Logger
 }
 
+// NewService constructs a Service backed by the given repository. A nil logger falls back to slog.Default.
 func NewService(repository Repository, log *slog.Logger) (*Service, error) {
 	if repository == nil {
 		return nil, fmt.Errorf("%w: repository is required", ErrInvalidInput)
@@ -36,6 +43,7 @@ func NewService(repository Repository, log *slog.Logger) (*Service, error) {
 	return &Service{repository: repository, log: log}, nil
 }
 
+// CreateNote validates and normalises the input, persists a new note, and logs the creation.
 func (s *Service) CreateNote(ctx context.Context, ownerUserID int64, input CreateNoteInput) (*Note, error) {
 	if err := validateOwner(ownerUserID); err != nil {
 		return nil, err
@@ -55,6 +63,7 @@ func (s *Service) CreateNote(ctx context.Context, ownerUserID int64, input Creat
 	return note, nil
 }
 
+// GetNote retrieves a single note by ID, enforcing owner isolation.
 func (s *Service) GetNote(ctx context.Context, ownerUserID int64, noteID uuid.UUID) (*Note, error) {
 	if err := validateOwnerAndNoteID(ownerUserID, noteID); err != nil {
 		return nil, err
@@ -69,6 +78,7 @@ func (s *Service) GetNote(ctx context.Context, ownerUserID int64, noteID uuid.UU
 	return note, nil
 }
 
+// ListRecentNotes returns the most recently updated notes for the owner, capped at MaxLimit.
 func (s *Service) ListRecentNotes(ctx context.Context, ownerUserID int64, limit int) ([]*Note, error) {
 	if err := validateOwner(ownerUserID); err != nil {
 		return nil, err
@@ -84,6 +94,7 @@ func (s *Service) ListRecentNotes(ctx context.Context, ownerUserID int64, limit 
 	return notes, nil
 }
 
+// SearchNotes filters notes by free-text query, category, and tags for the given owner.
 func (s *Service) SearchNotes(ctx context.Context, ownerUserID int64, filter SearchFilter) ([]*Note, error) {
 	if err := validateOwner(ownerUserID); err != nil {
 		return nil, err
@@ -108,6 +119,7 @@ func (s *Service) SearchNotes(ctx context.Context, ownerUserID int64, filter Sea
 	return notes, nil
 }
 
+// AddTags merges the supplied tags with the note's existing tags, deduplicates, and enforces MaxTags.
 func (s *Service) AddTags(ctx context.Context, ownerUserID int64, noteID uuid.UUID, tags []string) (*Note, error) {
 	if err := validateOwnerAndNoteID(ownerUserID, noteID); err != nil {
 		return nil, err
@@ -140,6 +152,7 @@ func (s *Service) AddTags(ctx context.Context, ownerUserID int64, noteID uuid.UU
 	return note, nil
 }
 
+// UpdateNote replaces all editable fields of a note, including the full tag set.
 func (s *Service) UpdateNote(ctx context.Context, ownerUserID int64, noteID uuid.UUID, input UpdateNoteInput) (*Note, error) {
 	if err := validateOwnerAndNoteID(ownerUserID, noteID); err != nil {
 		return nil, err
@@ -159,6 +172,7 @@ func (s *Service) UpdateNote(ctx context.Context, ownerUserID int64, noteID uuid
 	return note, nil
 }
 
+// DeleteNote removes the note and logs the deletion. Returns ErrNoteNotFound if the note does not belong to the owner.
 func (s *Service) DeleteNote(ctx context.Context, ownerUserID int64, noteID uuid.UUID) error {
 	if err := validateOwnerAndNoteID(ownerUserID, noteID); err != nil {
 		return err
@@ -199,6 +213,7 @@ func normalizeNoteFields(title, body, category string, tags []string) (string, s
 	return title, body, category, normalizedTags, nil
 }
 
+// normalizeTags lowercases and trims each tag, drops blank and duplicate values, and enforces MaxTags and MaxTagLength.
 func normalizeTags(tags []string) ([]string, error) {
 	result := make([]string, 0, len(tags))
 	seen := make(map[string]struct{}, len(tags))
@@ -232,6 +247,7 @@ func normalizeLimit(limit int) (int, error) {
 	return limit, nil
 }
 
+// validateOwner returns ErrUnauthenticated for non-positive IDs, which indicates a missing or anonymous caller.
 func validateOwner(ownerUserID int64) error {
 	if ownerUserID <= 0 {
 		return ErrUnauthenticated

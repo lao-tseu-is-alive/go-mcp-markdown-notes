@@ -174,6 +174,75 @@ func TestServiceDeleteNote(t *testing.T) {
 	}
 }
 
+func TestServiceGetNote(t *testing.T) {
+	noteID := uuid.New()
+	want := &Note{ID: noteID, OwnerUserID: 5, Title: "hello"}
+	repository := &recordingRepository{note: want}
+	service := newTestService(t, repository)
+
+	got, err := service.GetNote(context.Background(), 5, noteID)
+	if err != nil || got.ID != noteID {
+		t.Fatalf("GetNote() = %v, %v", got, err)
+	}
+	if _, err := service.GetNote(context.Background(), 0, noteID); !errors.Is(err, ErrUnauthenticated) {
+		t.Fatalf("unauthenticated: error = %v, want ErrUnauthenticated", err)
+	}
+	if _, err := service.GetNote(context.Background(), 5, uuid.Nil); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("nil ID: error = %v, want ErrInvalidInput", err)
+	}
+}
+
+func TestServiceUpdateNote(t *testing.T) {
+	noteID := uuid.New()
+	repository := &recordingRepository{note: &Note{ID: noteID, OwnerUserID: 5, Title: "updated"}}
+	service := newTestService(t, repository)
+
+	got, err := service.UpdateNote(context.Background(), 5, noteID, UpdateNoteInput{
+		Title: "  updated  ", Tags: []string{"go", "go"},
+	})
+	if err != nil || got.ID != noteID {
+		t.Fatalf("UpdateNote() = %v, %v", got, err)
+	}
+	if _, err := service.UpdateNote(context.Background(), 0, noteID, UpdateNoteInput{Title: "x"}); !errors.Is(err, ErrUnauthenticated) {
+		t.Fatalf("unauthenticated: error = %v, want ErrUnauthenticated", err)
+	}
+	if _, err := service.UpdateNote(context.Background(), 5, noteID, UpdateNoteInput{Title: "  "}); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("empty title: error = %v, want ErrInvalidInput", err)
+	}
+	if _, err := service.UpdateNote(context.Background(), 5, uuid.Nil, UpdateNoteInput{Title: "x"}); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("nil noteID: error = %v, want ErrInvalidInput", err)
+	}
+}
+
+func TestServiceAddTagsHappyPath(t *testing.T) {
+	noteID := uuid.New()
+	repository := &recordingRepository{note: &Note{ID: noteID, OwnerUserID: 3, Tags: []string{"go"}}}
+	service := newTestService(t, repository)
+
+	got, err := service.AddTags(context.Background(), 3, noteID, []string{"mcp", "go"})
+	if err != nil || got == nil {
+		t.Fatalf("AddTags() = %v, %v", got, err)
+	}
+	// existing "go" + new "mcp" + duplicate "go" → deduped to ["go", "mcp"]
+	if len(repository.addedTags) != 2 {
+		t.Fatalf("addedTags = %v, want [go mcp]", repository.addedTags)
+	}
+}
+
+func TestServiceAddTagsRejectsEmptyInput(t *testing.T) {
+	noteID := uuid.New()
+	repository := &recordingRepository{note: &Note{ID: noteID, OwnerUserID: 3}}
+	service := newTestService(t, repository)
+
+	if _, err := service.AddTags(context.Background(), 3, noteID, []string{}); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("empty tags: error = %v, want ErrInvalidInput", err)
+	}
+	// All-blank tags should also be rejected after normalization.
+	if _, err := service.AddTags(context.Background(), 3, noteID, []string{"  "}); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("blank tags: error = %v, want ErrInvalidInput", err)
+	}
+}
+
 func TestServiceAddTagsEnforcesResultingTagLimit(t *testing.T) {
 	existingTags := make([]string, MaxTags)
 	for i := range existingTags {

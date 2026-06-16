@@ -2,6 +2,7 @@ package notes
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -130,6 +131,133 @@ func TestConnectHandlerValidatesProtoRequests(t *testing.T) {
 	}
 	if repository.ownerUserID != 0 {
 		t.Fatalf("request reached repository with owner %d, want validation to short-circuit", repository.ownerUserID)
+	}
+}
+
+func TestConnectServerGetNote(t *testing.T) {
+	noteID := uuid.New()
+	repository := &recordingRepository{note: &Note{ID: noteID, OwnerUserID: 71, Title: "hello"}}
+	service := newTestService(t, repository)
+	server, _ := NewConnectServer(service, nil)
+
+	ctx := authadapter.ContextWithUser(context.Background(), &authadapter.AuthenticatedUser{AppUserID: 71, Scopes: []string{ScopeRead}})
+	resp, err := server.GetNote(ctx, connect.NewRequest(&notesv1.GetNoteRequest{Id: noteID.String()}))
+	if err != nil || resp.Msg.Note.Id != noteID.String() {
+		t.Fatalf("GetNote() note=%v err=%v", resp, err)
+	}
+
+	// unauthenticated
+	_, err = server.GetNote(context.Background(), connect.NewRequest(&notesv1.GetNoteRequest{Id: noteID.String()}))
+	assertConnectCode(t, err, connect.CodeUnauthenticated)
+
+	// repository miss → CodeNotFound
+	repository.err = ErrNoteNotFound
+	_, err = server.GetNote(ctx, connect.NewRequest(&notesv1.GetNoteRequest{Id: noteID.String()}))
+	assertConnectCode(t, err, connect.CodeNotFound)
+
+	// invalid UUID → CodeInvalidArgument
+	repository.err = nil
+	_, err = server.GetNote(ctx, connect.NewRequest(&notesv1.GetNoteRequest{Id: "not-a-uuid"}))
+	assertConnectCode(t, err, connect.CodeInvalidArgument)
+}
+
+func TestConnectServerSearchNotes(t *testing.T) {
+	repository := &recordingRepository{note: &Note{ID: uuid.New(), OwnerUserID: 71, Title: "result"}}
+	service := newTestService(t, repository)
+	server, _ := NewConnectServer(service, nil)
+
+	ctx := authadapter.ContextWithUser(context.Background(), &authadapter.AuthenticatedUser{AppUserID: 71, Scopes: []string{ScopeRead}})
+	resp, err := server.SearchNotes(ctx, connect.NewRequest(&notesv1.SearchNotesRequest{Query: "result"}))
+	if err != nil || len(resp.Msg.Notes) == 0 {
+		t.Fatalf("SearchNotes() notes=%v err=%v", resp, err)
+	}
+
+	// write-only scope is not sufficient for reads
+	writeCtx := authadapter.ContextWithUser(context.Background(), &authadapter.AuthenticatedUser{AppUserID: 71, Scopes: []string{ScopeWrite}})
+	_, err = server.SearchNotes(writeCtx, connect.NewRequest(&notesv1.SearchNotesRequest{}))
+	assertConnectCode(t, err, connect.CodePermissionDenied)
+}
+
+func TestConnectServerAddTags(t *testing.T) {
+	noteID := uuid.New()
+	repository := &recordingRepository{note: &Note{ID: noteID, OwnerUserID: 71, Tags: []string{"go"}}}
+	service := newTestService(t, repository)
+	server, _ := NewConnectServer(service, nil)
+
+	ctx := authadapter.ContextWithUser(context.Background(), &authadapter.AuthenticatedUser{AppUserID: 71, Scopes: []string{ScopeWrite}})
+	resp, err := server.AddTags(ctx, connect.NewRequest(&notesv1.AddTagsRequest{NoteId: noteID.String(), Tags: []string{"mcp"}}))
+	if err != nil || resp.Msg.Note == nil {
+		t.Fatalf("AddTags() note=%v err=%v", resp, err)
+	}
+
+	// read-only scope rejected
+	readCtx := authadapter.ContextWithUser(context.Background(), &authadapter.AuthenticatedUser{AppUserID: 71, Scopes: []string{ScopeRead}})
+	_, err = server.AddTags(readCtx, connect.NewRequest(&notesv1.AddTagsRequest{NoteId: noteID.String(), Tags: []string{"x"}}))
+	assertConnectCode(t, err, connect.CodePermissionDenied)
+
+	// invalid UUID
+	_, err = server.AddTags(ctx, connect.NewRequest(&notesv1.AddTagsRequest{NoteId: "bad", Tags: []string{"x"}}))
+	assertConnectCode(t, err, connect.CodeInvalidArgument)
+}
+
+func TestConnectServerUpdateNote(t *testing.T) {
+	noteID := uuid.New()
+	repository := &recordingRepository{note: &Note{ID: noteID, OwnerUserID: 71, Title: "updated"}}
+	service := newTestService(t, repository)
+	server, _ := NewConnectServer(service, nil)
+
+	ctx := authadapter.ContextWithUser(context.Background(), &authadapter.AuthenticatedUser{AppUserID: 71, Scopes: []string{ScopeWrite}})
+	resp, err := server.UpdateNote(ctx, connect.NewRequest(&notesv1.UpdateNoteRequest{
+		NoteId: noteID.String(), Title: "updated",
+	}))
+	if err != nil || resp.Msg.Note.Id != noteID.String() {
+		t.Fatalf("UpdateNote() note=%v err=%v", resp, err)
+	}
+
+	// read scope is not enough
+	readCtx := authadapter.ContextWithUser(context.Background(), &authadapter.AuthenticatedUser{AppUserID: 71, Scopes: []string{ScopeRead}})
+	_, err = server.UpdateNote(readCtx, connect.NewRequest(&notesv1.UpdateNoteRequest{NoteId: noteID.String(), Title: "x"}))
+	assertConnectCode(t, err, connect.CodePermissionDenied)
+
+	// invalid note UUID
+	_, err = server.UpdateNote(ctx, connect.NewRequest(&notesv1.UpdateNoteRequest{NoteId: "bad", Title: "x"}))
+	assertConnectCode(t, err, connect.CodeInvalidArgument)
+}
+
+func TestNewTimeoutInterceptor(t *testing.T) {
+	interceptor := NewTimeoutInterceptor(50 * time.Millisecond)
+	var deadlineSet bool
+	handler := connect.UnaryFunc(func(ctx context.Context, _ connect.AnyRequest) (connect.AnyResponse, error) {
+		_, deadlineSet = ctx.Deadline()
+		return connect.NewResponse(&notesv1.ListRecentNotesResponse{}), nil
+	})
+	req := connect.NewRequest(&notesv1.ListRecentNotesRequest{})
+	if _, err := interceptor.WrapUnary(handler)(context.Background(), req); err != nil {
+		t.Fatal(err)
+	}
+	if !deadlineSet {
+		t.Fatal("timeout interceptor did not set a deadline on the context")
+	}
+}
+
+func TestConnectServerMapError(t *testing.T) {
+	service := newTestService(t, &recordingRepository{})
+	server, _ := NewConnectServer(service, slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	cases := []struct {
+		err  error
+		code connect.Code
+	}{
+		{ErrInvalidInput, connect.CodeInvalidArgument},
+		{ErrNoteNotFound, connect.CodeNotFound},
+		{ErrUnauthenticated, connect.CodeUnauthenticated},
+		{errors.New("unexpected"), connect.CodeInternal},
+	}
+	for _, tc := range cases {
+		got := server.mapError(tc.err)
+		if got.Code() != tc.code {
+			t.Errorf("mapError(%v).Code() = %v, want %v", tc.err, got.Code(), tc.code)
+		}
 	}
 }
 

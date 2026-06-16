@@ -154,6 +154,127 @@ func TestCreateAndDeleteNoteTools(t *testing.T) {
 	}
 }
 
+func TestListRecentNotesAndSearchNotes(t *testing.T) {
+	note := &notesv1.Note{Id: "abc", Title: "test note", BodyMarkdown: "# body"}
+	fake := &fakeNotesClient{note: note}
+	session := newTestSession(t, fake)
+	ctx := context.Background()
+
+	res, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "list_recent_notes",
+		Arguments: map[string]any{"limit": 5},
+	})
+	if err != nil || res.IsError {
+		t.Fatalf("list_recent_notes: err=%v IsError=%v content=%v", err, res.IsError, res.Content)
+	}
+	raw, _ := json.Marshal(res.StructuredContent)
+	var listed NotesResult
+	if err := json.Unmarshal(raw, &listed); err != nil {
+		t.Fatal(err)
+	}
+	if listed.Count != 1 || listed.Notes[0].Title != "test note" {
+		t.Fatalf("listed = %+v", listed)
+	}
+
+	res, err = session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "search_notes",
+		Arguments: map[string]any{"query": "test"},
+	})
+	if err != nil || res.IsError {
+		t.Fatalf("search_notes: err=%v IsError=%v", err, res.IsError)
+	}
+	raw, _ = json.Marshal(res.StructuredContent)
+	var searched NotesResult
+	if err := json.Unmarshal(raw, &searched); err != nil {
+		t.Fatal(err)
+	}
+	if searched.Count != 1 {
+		t.Fatalf("searched.Count = %d, want 1", searched.Count)
+	}
+}
+
+func TestGetNoteUpdateNoteAddTagsTools(t *testing.T) {
+	noteID := "11111111-2222-3333-4444-555555555555"
+	fake := &fakeNotesClient{note: &notesv1.Note{Id: noteID, Title: "original"}}
+	session := newTestSession(t, fake)
+	ctx := context.Background()
+
+	res, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "get_note",
+		Arguments: map[string]any{"id": noteID},
+	})
+	if err != nil || res.IsError {
+		t.Fatalf("get_note: err=%v IsError=%v", err, res.IsError)
+	}
+
+	fake.note = &notesv1.Note{Id: noteID, Title: "updated"}
+	res, err = session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "update_note",
+		Arguments: map[string]any{
+			"note_id":       noteID,
+			"title":         "updated",
+			"body_markdown": "# updated body",
+		},
+	})
+	if err != nil || res.IsError {
+		t.Fatalf("update_note: err=%v IsError=%v", err, res.IsError)
+	}
+
+	res, err = session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "add_tags",
+		Arguments: map[string]any{"note_id": noteID, "tags": []any{"go", "mcp"}},
+	})
+	if err != nil || res.IsError {
+		t.Fatalf("add_tags: err=%v IsError=%v", err, res.IsError)
+	}
+}
+
+func TestMapRPCErrorAllCodes(t *testing.T) {
+	cases := []struct {
+		err      error
+		contains string
+	}{
+		{connect.NewError(connect.CodeUnauthenticated, errors.New("x")), "NOTES_TOKEN"},
+		{connect.NewError(connect.CodePermissionDenied, errors.New("x")), "scope"},
+		{connect.NewError(connect.CodeNotFound, errors.New("x")), "not found"},
+		{connect.NewError(connect.CodeInternal, errors.New("boom")), "boom"},
+	}
+	for _, tc := range cases {
+		got := mapRPCError("op", tc.err)
+		if !strings.Contains(got.Error(), tc.contains) {
+			t.Errorf("mapRPCError for code %v: got %q, want to contain %q",
+				connect.CodeOf(tc.err), got.Error(), tc.contains)
+		}
+	}
+}
+
+func TestProtoNotesToOutput(t *testing.T) {
+	notes := []*notesv1.Note{
+		{Id: "1", Title: "first"},
+		{Id: "2", Title: "second"},
+	}
+	out := protoNotesToOutput(notes)
+	if len(out) != 2 || out[0].Title != "first" || out[1].Title != "second" {
+		t.Fatalf("protoNotesToOutput = %v", out)
+	}
+	if got := protoNotesToOutput(nil); len(got) != 0 {
+		t.Fatalf("nil input: len = %d, want 0", len(got))
+	}
+}
+
+func TestNewNotesClientValidation(t *testing.T) {
+	if _, err := NewNotesClient("", "token", nil); err == nil {
+		t.Error("empty URL should be rejected")
+	}
+	if _, err := NewNotesClient("http://localhost", "", nil); err == nil {
+		t.Error("empty token should be rejected")
+	}
+	client, err := NewNotesClient("http://localhost:8080", "test-token", nil)
+	if err != nil || client == nil {
+		t.Fatalf("NewNotesClient: client=%v err=%v", client, err)
+	}
+}
+
 func TestUnauthenticatedErrorMentionsToken(t *testing.T) {
 	fake := &fakeNotesClient{err: connect.NewError(connect.CodeUnauthenticated, errors.New("invalid bearer token"))}
 	session := newTestSession(t, fake)

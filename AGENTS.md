@@ -36,6 +36,7 @@ cmd/notes-server/notesFront/src/  Frontend source
 cmd/notes-mcp/                    MCP stdio entry point
 cmd/notes-client/                 Example CLI client
 pkg/notes/                        Notes service and PostgreSQL repository
+pkg/notes/module/                 Importable domain module for bundle-ready architecture
 pkg/authadapter/                  JWT, PAT, and development token verification
 pkg/mcpnotes/                     MCP tools and authenticated Connect client
 proto/                            Protobuf source
@@ -109,22 +110,61 @@ repository.
 
 ## Database Migrations
 
-- Migration source lives in `cmd/notes-server/db/migrations/`.
-- Follow the existing zero-padded sequential naming convention for new `.sql`
-  migration files, with dbmate
-  `-- migrate:up` and `-- migrate:down` sections.
-- Never rewrite a migration that may already have been applied. Add a new
-  migration instead.
-- The server embeds migrations and automatically applies pending up migrations
-  during startup under a PostgreSQL advisory lock.
+Migration SQL files exist in two places that must be kept in sync:
+
+- `cmd/notes-server/db/migrations/` — used by `dbmate` (`make db-up/down`) and
+  by the standalone server's embedded migration runner.
+- `pkg/notes/module/db/migrations/` — embedded in the importable module; applied
+  at startup via `notesmodule.Migrate` under a PostgreSQL advisory lock keyed to
+  `'go-mcp-markdown-notes:migrations'`.
+
+When adding or changing a migration, update **both directories** with the same
+file. The module's `Migrate` function is the runtime path; `dbmate` is for
+manual inspection and rollbacks.
+
+Additional rules:
+
+- Follow the existing zero-padded sequential naming convention (`000002_…sql`),
+  with dbmate `-- migrate:up` and `-- migrate:down` sections.
+- Never rewrite a migration that may already have been applied. Add a new one
+  instead.
+- After adding a migration, update the expected statement count in
+  `TestModuleParseDBMateUp_ParsesMigration` in `pkg/notes/module/module_test.go`.
 - `make db-up` is available for explicit pre-application; it is not required
   before every server start.
-- Use `make db-down` only deliberately: it rolls back the latest migration.
+- Use `make db-down` only deliberately: it rolls back the latest dbmate
+  migration. There is no module-level rollback; the advisory lock only covers
+  forward migrations.
 - Never run `make db-up`, `make db-down`, or migration-enabled server startup
   against an unknown, shared, staging, or production database without explicit
   approval and verified configuration.
 - Schema changes require focused migration/parser tests and repository tests
   where behavior changes.
+
+## Module & Bundle Architecture
+
+`pkg/notes/module` exposes the notes domain as an importable Go package. The
+two operating modes are:
+
+- **Standalone** (`cmd/notes-server`): calls `notesmodule.Migrate`, then
+  `notesmodule.New`, then `mod.RegisterRoutes(mux)`. This is the only mode
+  currently in production.
+- **Bundle**: a foreign repository imports the module, passes its own shared
+  `*pgxpool.Pool`, `TokenVerifier`, and `*slog.Logger`, and mounts the returned
+  `ConnectHandlers()` on its shared `http.ServeMux`.
+
+Key rules:
+
+- `New` validates deps at construction time: `Pool` and `Verifier` are required;
+  a nil `Logger` silently falls back to `slog.Default()`.
+- The interceptor chain (timeout → auth → proto validation) is assembled once
+  inside `connectOption()`. Do not duplicate or reorder it.
+- `Start` and `Stop` are currently no-ops but must be called by bundle callers
+  so future background workers are picked up automatically.
+- Do not import `cmd/notes-server` packages from this module. Dependency flow is
+  one-way: `cmd` → `pkg`.
+- `pkg/notes/module/AGENTS.md` contains detailed guidance for changes scoped to
+  that package.
 
 ## Frontend
 

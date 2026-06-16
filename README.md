@@ -216,6 +216,7 @@ go-mcp-markdown-notes/
 │   └── notes-mcp/          # MCP stdio server entry point (env: NOTES_SERVER, NOTES_TOKEN)
 ├── pkg/                    # Shared packages
 │   ├── notes/              # Notes business & repository layers
+│   │   └── module/         # Importable domain module (bundle-ready); see Module & Bundle Strategy
 │   ├── authadapter/        # TokenVerifier abstraction: JWT, dev token, PAT introspection, composite
 │   ├── mcpnotes/           # MCP server (7 tools) + authenticated Connect client
 │   └── version/            # Build version meta information
@@ -226,6 +227,125 @@ go-mcp-markdown-notes/
 ├── Dockerfile              # Multi-stage production container definition
 └── README.md
 ```
+
+---
+
+## Module & Bundle Strategy
+
+`pkg/notes/module` exposes the notes domain as an importable Go package so that
+another repository can embed it alongside other domains in a single binary —
+sharing one HTTP server, one database pool, and one auth setup — without
+forking or duplicating code.
+
+### Standalone mode (default)
+
+`cmd/notes-server` is the standard standalone binary. It calls
+`notesmodule.Migrate` and `notesmodule.New`, then mounts all routes via
+`mod.RegisterRoutes(mux)`:
+
+```go
+import notesmodule "github.com/lao-tseu-is-alive/go-mcp-markdown-notes/pkg/notes/module"
+
+mod, _ := notesmodule.New(ctx, notesmodule.Config{}, notesmodule.Deps{
+    Pool:     pool,
+    Verifier: verifier,
+    Logger:   log,
+})
+mod.RegisterRoutes(mux) // mounts /notes.v1.NotesService/ on the shared mux
+```
+
+Nothing changes for existing deployments. The standalone binary continues to
+work exactly as before.
+
+### Bundle mode
+
+A bundle repository imports this module alongside others and composes them at
+compile time — no plugins, no dynamic loading. Each module gets its own
+config, schema namespace, and handler prefix; they share the process, pool,
+and mux.
+
+```go
+// In the bundle repo's application setup:
+notesMod, _ := notesmodule.New(ctx, notesmodule.Config{
+    RequestTimeout: 10 * time.Second,
+}, notesmodule.Deps{
+    Pool:     sharedPool,   // one pool for all modules
+    Verifier: sharedVerifier,
+    Logger:   logger,
+})
+
+// Option A – mount with RegisterRoutes (simple)
+notesMod.RegisterRoutes(sharedMux)
+
+// Option B – iterate ConnectHandlers for fine-grained control
+for _, ch := range notesMod.ConnectHandlers() {
+    sharedMux.Handle(ch.Pattern, ch.Handler)
+}
+```
+
+`ConnectHandlers()` returns `[]ConnectHandler{Pattern, Handler}` pairs with the
+full interceptor chain (timeout → auth → proto validation) already applied.
+`RoutePatterns()` and `ConnectPatterns()` list the owned URL prefixes so the
+bundle can detect conflicts before mounting.
+
+### Module API
+
+| Method | Returns | Purpose |
+|--------|---------|---------|
+| `New(ctx, Config, Deps)` | `*Module, error` | Validate deps, build all service layers |
+| `RegisterRoutes(mux)` | `error` | Mount Connect handlers on a shared mux (standalone or bundle) |
+| `ConnectHandlers()` | `[]ConnectHandler` | Return `(pattern, handler)` pairs for bundle callers |
+| `RoutePatterns()` | `[]RoutePattern` | URL patterns owned by this module |
+| `ConnectPatterns()` | `[]string` | Connect/gRPC path prefixes |
+| `Start(ctx)` | `error` | No-op (hook for future background workers) |
+| `Stop(ctx)` | `error` | No-op (hook for future graceful shutdown) |
+| `Migrate(ctx, pool)` | `error` | Apply pending SQL migrations (package-level function) |
+| `Migrations` | `embed.FS` | Embedded SQL files; bundle callers can inspect directly |
+| `ParseDBMateUp(content)` | `[]string, error` | Parse DBMate migration format (exported for testing) |
+
+### Database / schema isolation
+
+The module owns the `notes` and `note_tags` tables under the `public` schema.
+`Migrate` creates a `schema_migrations` table (if absent) and uses a
+PostgreSQL advisory lock keyed to `'go-mcp-markdown-notes:migrations'` to
+prevent concurrent migration runs across instances.
+
+In bundle mode, each domain module runs `Migrate` independently against the
+shared pool; advisory lock keys must be unique per module to avoid deadlocks.
+If the bundle needs full schema isolation, point each module at a different
+PostgreSQL `search_path` schema by setting that on the pool before passing it in.
+
+### Local multi-repository development with `go.work`
+
+When developing the bundle repo and this repo side by side, use a Go workspace
+so that the bundle picks up local (uncommitted) changes to this module without
+publishing a new version:
+
+```bash
+# From the directory that contains both repos
+go work init
+go work use ./go-mcp-markdown-notes
+go work use ./my-bundle-repo
+```
+
+The `go.work` file is conventionally git-ignored. Drop it to switch back to the
+released module version.
+
+### Importing this module from another repository
+
+```go
+// In go.mod of the bundle repo:
+require github.com/lao-tseu-is-alive/go-mcp-markdown-notes v0.x.y
+
+// In code:
+import (
+    notesmodule "github.com/lao-tseu-is-alive/go-mcp-markdown-notes/pkg/notes/module"
+)
+```
+
+The SQL migration files are embedded in the module binary via `go:embed`, so no
+external SQL files need to be copied into the bundle repo. Only the Go source is
+needed at build time.
 
 ---
 

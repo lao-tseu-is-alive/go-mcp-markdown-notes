@@ -13,13 +13,10 @@ import (
 	"runtime/debug"
 	"time"
 
-	"connectrpc.com/connect"
-	connectvalidate "connectrpc.com/validate"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/lao-tseu-is-alive/go-cloud-k8s-common-libs/pkg/goHttpEcho"
-	"github.com/lao-tseu-is-alive/go-mcp-markdown-notes/gen/notes/v1/notesv1connect"
 	"github.com/lao-tseu-is-alive/go-mcp-markdown-notes/pkg/authadapter"
-	"github.com/lao-tseu-is-alive/go-mcp-markdown-notes/pkg/notes"
+	notesmodule "github.com/lao-tseu-is-alive/go-mcp-markdown-notes/pkg/notes/module"
 	"github.com/lao-tseu-is-alive/go-mcp-markdown-notes/pkg/version"
 )
 
@@ -54,35 +51,29 @@ func newApplication(ctx context.Context, config serverConfig, log *slog.Logger) 
 	if err := pool.Ping(ctx); err != nil {
 		return nil, fmt.Errorf("ping database: %w", err)
 	}
-	if err := runMigrations(ctx, pool); err != nil {
+	if err := notesmodule.Migrate(ctx, pool); err != nil {
 		return nil, err
 	}
 
-	repository, err := notes.NewPostgresRepository(pool, log)
-	if err != nil {
-		return nil, err
-	}
-	service, err := notes.NewService(repository, log)
-	if err != nil {
-		return nil, err
-	}
-	connectServer, err := notes.NewConnectServer(service, log)
-	if err != nil {
-		return nil, err
-	}
 	verifier, err := buildTokenVerifier(config, log)
 	if err != nil {
 		return nil, err
 	}
-	interceptor := connect.WithInterceptors(
-		notes.NewTimeoutInterceptor(config.RequestTimeout),
-		authadapter.NewInterceptor(verifier, log),
-		connectvalidate.NewInterceptor(connectvalidate.WithValidateResponses()),
-	)
-	path, notesHandler := notesv1connect.NewNotesServiceHandler(connectServer, interceptor)
+	mod, err := notesmodule.New(ctx, notesmodule.Config{
+		RequestTimeout: config.RequestTimeout,
+	}, notesmodule.Deps{
+		Pool:     pool,
+		Verifier: verifier,
+		Logger:   log,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("notes module: %w", err)
+	}
 
 	mux := http.NewServeMux()
-	mux.Handle(path, http.MaxBytesHandler(notesHandler, 1<<20))
+	if err := mod.RegisterRoutes(mux); err != nil {
+		return nil, fmt.Errorf("register notes routes: %w", err)
+	}
 	mux.HandleFunc("GET /health", healthHandler)
 	mux.HandleFunc("GET /readiness", readinessHandler(pool))
 	mux.HandleFunc("GET /goAppInfo", appInfoHandler)

@@ -1,80 +1,14 @@
 package main
 
 import (
-	"context"
 	"embed"
 	"fmt"
-	"io/fs"
 	"path/filepath"
-	"sort"
 	"strings"
-	"time"
-
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 //go:embed db/migrations/*.sql
 var migrationFiles embed.FS
-
-// runMigrations applies all embedded SQL migrations that have not yet been recorded in schema_migrations.
-// It acquires a PostgreSQL advisory lock on startup so only one server instance migrates at a time.
-func runMigrations(ctx context.Context, pool *pgxpool.Pool) error {
-	if pool == nil {
-		return fmt.Errorf("migration pool is required")
-	}
-	paths, err := fs.Glob(migrationFiles, "db/migrations/*.sql")
-	if err != nil {
-		return fmt.Errorf("list embedded migrations: %w", err)
-	}
-	sort.Strings(paths)
-
-	conn, err := pool.Acquire(ctx)
-	if err != nil {
-		return fmt.Errorf("acquire migration connection: %w", err)
-	}
-	defer conn.Release()
-
-	if _, err := conn.Exec(ctx, "SELECT pg_advisory_lock(hashtext('go-mcp-markdown-notes:migrations'))"); err != nil {
-		return fmt.Errorf("acquire migration lock: %w", err)
-	}
-	defer func() {
-		unlockCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
-		_, _ = conn.Exec(unlockCtx, "SELECT pg_advisory_unlock(hashtext('go-mcp-markdown-notes:migrations'))")
-	}()
-
-	if _, err := conn.Exec(ctx, `
-CREATE TABLE IF NOT EXISTS schema_migrations (
-    version TEXT PRIMARY KEY,
-    applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-)`); err != nil {
-		return fmt.Errorf("create schema_migrations table: %w", err)
-	}
-
-	for _, path := range paths {
-		version := migrationVersion(path)
-		var applied bool
-		if err := conn.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = $1)", version).Scan(&applied); err != nil {
-			return fmt.Errorf("check migration %s: %w", version, err)
-		}
-		if applied {
-			continue
-		}
-		content, err := migrationFiles.ReadFile(path)
-		if err != nil {
-			return fmt.Errorf("read migration %s: %w", version, err)
-		}
-		statements, err := parseDBMateUp(string(content))
-		if err != nil {
-			return fmt.Errorf("parse migration %s: %w", version, err)
-		}
-		if err := applyMigration(ctx, conn.Conn(), version, statements); err != nil {
-			return err
-		}
-	}
-	return nil
-}
 
 // migrationVersion extracts the version prefix (everything before the first underscore) from a migration file's base name.
 func migrationVersion(path string) string {
@@ -86,27 +20,6 @@ func migrationVersion(path string) string {
 	return base
 }
 
-// applyMigration runs the supplied SQL statements in a single transaction and records the version in schema_migrations on commit.
-func applyMigration(ctx context.Context, conn *pgx.Conn, version string, statements []string) error {
-	tx, err := conn.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("begin migration %s: %w", version, err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	for _, statement := range statements {
-		if _, err := tx.Exec(ctx, statement); err != nil {
-			return fmt.Errorf("apply migration %s: %w", version, err)
-		}
-	}
-	if _, err := tx.Exec(ctx, "INSERT INTO schema_migrations (version) VALUES ($1)", version); err != nil {
-		return fmt.Errorf("record migration %s: %w", version, err)
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit migration %s: %w", version, err)
-	}
-	return nil
-}
-
 // parseDBMateUp extracts the SQL statements from the "-- migrate:up" section of a DBMate migration file.
 // Multi-statement blocks delimited by "-- migrate:statementbegin / end" are emitted as a single string.
 func parseDBMateUp(content string) ([]string, error) {
@@ -116,13 +29,13 @@ func parseDBMateUp(content string) ([]string, error) {
 		statementBeginMarker = "-- migrate:statementbegin"
 		statementEndMarker   = "-- migrate:statementend"
 	)
-	upIndex := strings.Index(content, upMarker)
-	if upIndex < 0 {
+	_, rest, found := strings.Cut(content, upMarker)
+	if !found {
 		return nil, fmt.Errorf("missing %s marker", upMarker)
 	}
-	section := content[upIndex+len(upMarker):]
-	if downIndex := strings.Index(section, downMarker); downIndex >= 0 {
-		section = section[:downIndex]
+	section := rest
+	if before, _, cut := strings.Cut(section, downMarker); cut {
+		section = before
 	}
 
 	var statements []string
@@ -136,7 +49,7 @@ func parseDBMateUp(content string) ([]string, error) {
 		}
 	}
 
-	for _, line := range strings.Split(section, "\n") {
+	for line := range strings.SplitSeq(section, "\n") {
 		trimmed := strings.TrimSpace(line)
 		switch trimmed {
 		case statementBeginMarker:
@@ -172,7 +85,7 @@ func parseDBMateUp(content string) ([]string, error) {
 
 // containsSQL reports whether the statement contains at least one non-blank, non-comment line.
 func containsSQL(statement string) bool {
-	for _, line := range strings.Split(statement, "\n") {
+	for line := range strings.SplitSeq(statement, "\n") {
 		trimmed := strings.TrimSpace(line)
 		if trimmed != "" && !strings.HasPrefix(trimmed, "--") {
 			return true

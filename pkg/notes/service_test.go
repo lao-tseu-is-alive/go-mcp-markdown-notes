@@ -34,9 +34,9 @@ func (r *recordingRepository) ListRecentNotes(_ context.Context, ownerUserID int
 	r.ownerUserID, r.limit = ownerUserID, limit
 	return []*Note{r.note}, r.err
 }
-func (r *recordingRepository) SearchNotes(_ context.Context, ownerUserID int64, filter SearchFilter) ([]*Note, error) {
+func (r *recordingRepository) SearchNotes(_ context.Context, ownerUserID int64, filter SearchFilter) (SearchResult, error) {
 	r.ownerUserID, r.search = ownerUserID, filter
-	return []*Note{r.note}, r.err
+	return SearchResult{Notes: []*Note{r.note}}, r.err
 }
 func (r *recordingRepository) AddTags(_ context.Context, ownerUserID int64, _ uuid.UUID, tags []string) (*Note, error) {
 	r.ownerUserID, r.addedTags = ownerUserID, tags

@@ -37,8 +37,8 @@ func (r *PostgresRepository) CreateNote(ctx context.Context, ownerUserID int64, 
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	note := &Note{Tags: append([]string(nil), input.Tags...)}
-	err = tx.QueryRow(ctx, createNoteSQL, ownerUserID, input.Title, input.BodyMarkdown, input.Category).Scan(
-		&note.ID, &note.OwnerUserID, &note.Title, &note.BodyMarkdown, &note.Category, &note.CreatedAt, &note.UpdatedAt,
+	err = tx.QueryRow(ctx, createNoteSQL, ownerUserID, input.Title, input.BodyMarkdown, input.Category, input.Status).Scan(
+		&note.ID, &note.OwnerUserID, &note.Title, &note.BodyMarkdown, &note.Category, &note.Status, &note.CreatedAt, &note.UpdatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("create note: %w", err)
@@ -64,12 +64,12 @@ func (r *PostgresRepository) ListRecentNotes(ctx context.Context, ownerUserID in
 	return collectNotes(rows)
 }
 
-func (r *PostgresRepository) SearchNotes(ctx context.Context, ownerUserID int64, filter SearchFilter) ([]*Note, error) {
+func (r *PostgresRepository) SearchNotes(ctx context.Context, ownerUserID int64, filter SearchFilter) (SearchResult, error) {
 	rows, err := r.pool.Query(ctx, searchNotesSQL, ownerUserID, filter.Query, filter.Category, filter.Tags, filter.Limit)
 	if err != nil {
-		return nil, fmt.Errorf("search notes: %w", err)
+		return SearchResult{}, fmt.Errorf("search notes: %w", err)
 	}
-	return collectNotes(rows)
+	return collectSearchResults(rows)
 }
 
 func (r *PostgresRepository) AddTags(ctx context.Context, ownerUserID int64, noteID uuid.UUID, tags []string) (*Note, error) {
@@ -107,7 +107,7 @@ func (r *PostgresRepository) UpdateNote(ctx context.Context, ownerUserID int64, 
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	var id uuid.UUID
-	if err := tx.QueryRow(ctx, updateNoteSQL, ownerUserID, noteID, input.Title, input.BodyMarkdown, input.Category).Scan(&id); err != nil {
+	if err := tx.QueryRow(ctx, updateNoteSQL, ownerUserID, noteID, input.Title, input.BodyMarkdown, input.Category, input.Status).Scan(&id); err != nil {
 		return nil, mapNotFound(err)
 	}
 	if _, err := tx.Exec(ctx, deleteTagsSQL, ownerUserID, noteID); err != nil {
@@ -150,7 +150,7 @@ func insertTags(ctx context.Context, q execer, ownerUserID int64, noteID uuid.UU
 
 func scanNote(row pgx.Row) (*Note, error) {
 	note := &Note{}
-	err := row.Scan(&note.ID, &note.OwnerUserID, &note.Title, &note.BodyMarkdown, &note.Category, &note.Tags, &note.CreatedAt, &note.UpdatedAt)
+	err := row.Scan(&note.ID, &note.OwnerUserID, &note.Title, &note.BodyMarkdown, &note.Category, &note.Status, &note.Tags, &note.CreatedAt, &note.UpdatedAt)
 	if err != nil {
 		return nil, mapNotFound(err)
 	}
@@ -172,6 +172,25 @@ func collectNotes(rows pgx.Rows) ([]*Note, error) {
 		return nil, fmt.Errorf("read notes: %w", err)
 	}
 	return notes, nil
+}
+
+// collectSearchResults drains search rows into a SearchResult, picking up the window-function total count.
+func collectSearchResults(rows pgx.Rows) (SearchResult, error) {
+	defer rows.Close()
+	result := SearchResult{Notes: make([]*Note, 0)}
+	for rows.Next() {
+		note := &Note{}
+		var totalCount int32
+		if err := rows.Scan(&note.ID, &note.OwnerUserID, &note.Title, &note.BodyMarkdown, &note.Category, &note.Status, &note.Tags, &note.CreatedAt, &note.UpdatedAt, &totalCount); err != nil {
+			return SearchResult{}, mapNotFound(err)
+		}
+		result.Notes = append(result.Notes, note)
+		result.TotalSize = totalCount
+	}
+	if err := rows.Err(); err != nil {
+		return SearchResult{}, fmt.Errorf("read notes: %w", err)
+	}
+	return result, nil
 }
 
 // mapNotFound translates pgx.ErrNoRows to the domain ErrNoteNotFound so callers don't depend on the pgx package.

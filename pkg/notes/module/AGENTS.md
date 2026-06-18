@@ -39,9 +39,7 @@ db/migrations/     Embedded SQL files in DBMate format
 ## Modifying Migrations
 
 - Migration files live in `db/migrations/` and are embedded at build time.
-- **Also update** `cmd/notes-server/db/migrations/` if the schema change should
-  be reflected when running standalone with `dbmate`. The two directories must
-  stay in sync.
+  This is the single authoritative location; `make db-up/down` also reads here.
 - Follow the existing zero-padded sequential naming convention
   (`000002_add_column.sql`, etc.).
 - Never rewrite an already-applied migration. Add a new one instead.

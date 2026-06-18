@@ -311,11 +311,45 @@ async function callConnectRPC(methodName: string, requestData: any, isRetry = fa
     }
 }
 
+// --- NOTE STATUS HELPERS ---
+interface NoteStatusInfo {
+    key: string;
+    label: string;
+}
+
+function noteStatusInfo(status: string | number | undefined): NoteStatusInfo | null {
+    const map: Record<string | number, NoteStatusInfo> = {
+        1: { key: "draft", label: "Draft" },
+        "NOTE_STATUS_DRAFT": { key: "draft", label: "Draft" },
+        2: { key: "active", label: "Active" },
+        "NOTE_STATUS_ACTIVE": { key: "active", label: "Active" },
+        3: { key: "final", label: "Final" },
+        "NOTE_STATUS_FINAL": { key: "final", label: "Final" },
+        4: { key: "archived", label: "Archived" },
+        "NOTE_STATUS_ARCHIVED": { key: "archived", label: "Archived" },
+    };
+    return status !== undefined ? (map[status] ?? null) : null;
+}
+
+function statusToInt(status: string | number | undefined): number {
+    if (typeof status === "number" && status >= 1 && status <= 4) return status;
+    const map: Record<string, number> = {
+        "NOTE_STATUS_DRAFT": 1,
+        "NOTE_STATUS_ACTIVE": 2,
+        "NOTE_STATUS_FINAL": 3,
+        "NOTE_STATUS_ARCHIVED": 4,
+    };
+    return typeof status === "string" ? (map[status] ?? 2) : 2;
+}
+
 // --- NOTE RENDER FUNCTIONS ---
-function populateNotesUI(notes: any[]) {
+function populateNotesUI(notes: any[], totalSize?: number) {
     notesContainer.innerHTML = "";
     currentNotesList = notes || [];
-    notesCountLabel.textContent = `${currentNotesList.length} notes loaded`;
+    const total = totalSize ?? currentNotesList.length;
+    notesCountLabel.textContent = total > currentNotesList.length
+        ? `${currentNotesList.length} of ${total} notes`
+        : `${currentNotesList.length} notes loaded`;
 
     if (currentNotesList.length === 0) {
         notesContainer.innerHTML = `
@@ -333,6 +367,9 @@ function populateNotesUI(notes: any[]) {
 
         const categoryLabel = note.category ? `<span class="note-category">${note.category}</span>` : "";
 
+        const si = noteStatusInfo(note.status);
+        const statusBadge = si ? `<span class="note-status-${si.key}">${si.label}</span>` : "";
+
         const tags = note.tags || [];
         const tagsHtml = tags.map((t: string) => `<span class="tag-pill">${t}</span>`).join("");
 
@@ -342,7 +379,7 @@ function populateNotesUI(notes: any[]) {
             <div class="note-header">
                 <div class="note-title-line">
                     <span class="note-title">${note.title || "Untitled"}</span>
-                    ${categoryLabel}
+                    ${categoryLabel}${statusBadge}
                 </div>
                 <span class="note-id" data-copy-id="${note.id}" title="Click to copy ID">ID: ${note.id.substring(0, 8)}...</span>
             </div>
@@ -425,6 +462,7 @@ function startEditMode(note: any) {
     (document.getElementById("update-category") as HTMLInputElement).value = note.category || "";
     (document.getElementById("update-tags") as HTMLInputElement).value = (note.tags || []).join(", ");
     (document.getElementById("update-body") as HTMLTextAreaElement).value = note.bodyMarkdown || "";
+    (document.getElementById("update-status") as HTMLSelectElement).value = String(statusToInt(note.status));
 
     // Show tab & navigate
     tabUpdateToggle.style.display = "block";
@@ -504,13 +542,15 @@ function setupEventHandlers() {
         const bodyMarkdown = (document.getElementById("create-body") as HTMLTextAreaElement).value.trim();
 
         const tags = tagsStr.split(",").map(t => t.trim()).filter(Boolean);
+        const status = parseInt((document.getElementById("create-status") as HTMLSelectElement).value) || 2;
 
         try {
             await callConnectRPC("CreateNote", {
                 title,
                 category,
                 tags,
-                bodyMarkdown
+                bodyMarkdown,
+                status,
             });
 
             showToast("Note created successfully!", "success");
@@ -544,8 +584,9 @@ function setupEventHandlers() {
                 limit
             });
 
-            populateNotesUI(response.notes);
-            showToast(`Search returned ${response.notes?.length || 0} notes!`, "success");
+            const total: number = response.pageResponse?.totalSize ?? response.notes?.length ?? 0;
+            populateNotesUI(response.notes, total);
+            showToast(`Search: ${response.notes?.length || 0} of ${total} notes`, "success");
         } catch (err) {}
     });
 
@@ -562,6 +603,7 @@ function setupEventHandlers() {
         const bodyMarkdown = (document.getElementById("update-body") as HTMLTextAreaElement).value.trim();
 
         const tags = tagsStr.split(",").map(t => t.trim()).filter(Boolean);
+        const status = parseInt((document.getElementById("update-status") as HTMLSelectElement).value) || 2;
 
         try {
             await callConnectRPC("UpdateNote", {
@@ -569,7 +611,8 @@ function setupEventHandlers() {
                 title,
                 category,
                 tags,
-                bodyMarkdown
+                bodyMarkdown,
+                status,
             });
 
             showToast("Note updated successfully!", "success");

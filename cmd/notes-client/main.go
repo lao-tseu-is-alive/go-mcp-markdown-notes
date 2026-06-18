@@ -159,11 +159,12 @@ func main() {
 			}
 		}
 
+		l := int32(*limit)
 		resp, err := client.SearchNotes(ctx, connect.NewRequest(&v1.SearchNotesRequest{
 			Query:    *query,
 			Category: *category,
 			Tags:     tags,
-			Limit:    int32(*limit),
+			Limit:    &l,
 		}))
 		if err != nil {
 			printError(err, *format)

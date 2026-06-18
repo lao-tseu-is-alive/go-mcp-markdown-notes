@@ -31,7 +31,7 @@ This repository contains:
 Key paths:
 
 ```text
-cmd/notes-server/                 HTTP/Connect server and embedded migrations
+cmd/notes-server/                 HTTP/Connect server
 cmd/notes-server/notesFront/src/  Frontend source
 cmd/notes-mcp/                    MCP stdio entry point
 cmd/notes-client/                 Example CLI client
@@ -110,17 +110,12 @@ repository.
 
 ## Database Migrations
 
-Migration SQL files exist in two places that must be kept in sync:
+Migration SQL files live in exactly one place:
 
-- `cmd/notes-server/db/migrations/` — used by `dbmate` (`make db-up/down`) and
-  by the standalone server's embedded migration runner.
 - `pkg/notes/module/db/migrations/` — embedded in the importable module; applied
   at startup via `notesmodule.Migrate` under a PostgreSQL advisory lock keyed to
-  `'go-mcp-markdown-notes:migrations'`.
-
-When adding or changing a migration, update **both directories** with the same
-file. The module's `Migrate` function is the runtime path; `dbmate` is for
-manual inspection and rollbacks.
+  `'go-mcp-markdown-notes:migrations'`. `make db-up/down` also reads this
+  directory for manual inspection and rollbacks.
 
 Additional rules:
 

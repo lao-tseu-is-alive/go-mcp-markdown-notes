@@ -24,6 +24,69 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// NoteStatus describes the lifecycle state of a note.
+//
+// The zero value is intentionally unspecified so clients do not accidentally
+// create a meaningful status by omitting the field.
+type NoteStatus int32
+
+const (
+	NoteStatus_NOTE_STATUS_UNSPECIFIED NoteStatus = 0
+	// The note is still being drafted and may be incomplete.
+	NoteStatus_NOTE_STATUS_DRAFT NoteStatus = 1
+	// The note is active/current and should appear in normal listings.
+	NoteStatus_NOTE_STATUS_ACTIVE NoteStatus = 2
+	// The note is considered complete/final but still useful in normal access.
+	NoteStatus_NOTE_STATUS_FINAL NoteStatus = 3
+	// The note is preserved but hidden from normal active views.
+	NoteStatus_NOTE_STATUS_ARCHIVED NoteStatus = 4
+)
+
+// Enum value maps for NoteStatus.
+var (
+	NoteStatus_name = map[int32]string{
+		0: "NOTE_STATUS_UNSPECIFIED",
+		1: "NOTE_STATUS_DRAFT",
+		2: "NOTE_STATUS_ACTIVE",
+		3: "NOTE_STATUS_FINAL",
+		4: "NOTE_STATUS_ARCHIVED",
+	}
+	NoteStatus_value = map[string]int32{
+		"NOTE_STATUS_UNSPECIFIED": 0,
+		"NOTE_STATUS_DRAFT":       1,
+		"NOTE_STATUS_ACTIVE":      2,
+		"NOTE_STATUS_FINAL":       3,
+		"NOTE_STATUS_ARCHIVED":    4,
+	}
+)
+
+func (x NoteStatus) Enum() *NoteStatus {
+	p := new(NoteStatus)
+	*p = x
+	return p
+}
+
+func (x NoteStatus) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (NoteStatus) Descriptor() protoreflect.EnumDescriptor {
+	return file_notes_v1_notes_proto_enumTypes[0].Descriptor()
+}
+
+func (NoteStatus) Type() protoreflect.EnumType {
+	return &file_notes_v1_notes_proto_enumTypes[0]
+}
+
+func (x NoteStatus) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use NoteStatus.Descriptor instead.
+func (NoteStatus) EnumDescriptor() ([]byte, []int) {
+	return file_notes_v1_notes_proto_rawDescGZIP(), []int{0}
+}
+
 // Core entity
 type Note struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -35,6 +98,7 @@ type Note struct {
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	OwnerUserId   string                 `protobuf:"bytes,8,opt,name=owner_user_id,json=ownerUserId,proto3" json:"owner_user_id,omitempty"`
+	Status        NoteStatus             `protobuf:"varint,9,opt,name=status,proto3,enum=notes.v1.NoteStatus" json:"status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -125,12 +189,20 @@ func (x *Note) GetOwnerUserId() string {
 	return ""
 }
 
+func (x *Note) GetStatus() NoteStatus {
+	if x != nil {
+		return x.Status
+	}
+	return NoteStatus_NOTE_STATUS_UNSPECIFIED
+}
+
 type CreateNoteRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Title         string                 `protobuf:"bytes,1,opt,name=title,proto3" json:"title,omitempty"`
 	BodyMarkdown  string                 `protobuf:"bytes,2,opt,name=body_markdown,json=bodyMarkdown,proto3" json:"body_markdown,omitempty"`
 	Category      string                 `protobuf:"bytes,3,opt,name=category,proto3" json:"category,omitempty"`
 	Tags          []string               `protobuf:"bytes,4,rep,name=tags,proto3" json:"tags,omitempty"`
+	Status        *NoteStatus            `protobuf:"varint,5,opt,name=status,proto3,enum=notes.v1.NoteStatus,oneof" json:"status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -191,6 +263,13 @@ func (x *CreateNoteRequest) GetTags() []string {
 		return x.Tags
 	}
 	return nil
+}
+
+func (x *CreateNoteRequest) GetStatus() NoteStatus {
+	if x != nil && x.Status != nil {
+		return *x.Status
+	}
+	return NoteStatus_NOTE_STATUS_UNSPECIFIED
 }
 
 type CreateNoteResponse struct {
@@ -418,7 +497,7 @@ type SearchNotesRequest struct {
 	Query         string                 `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
 	Tags          []string               `protobuf:"bytes,2,rep,name=tags,proto3" json:"tags,omitempty"`
 	Category      string                 `protobuf:"bytes,3,opt,name=category,proto3" json:"category,omitempty"`
-	Limit         int32                  `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`
+	Limit         *int32                 `protobuf:"varint,4,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -475,8 +554,8 @@ func (x *SearchNotesRequest) GetCategory() string {
 }
 
 func (x *SearchNotesRequest) GetLimit() int32 {
-	if x != nil {
-		return x.Limit
+	if x != nil && x.Limit != nil {
+		return *x.Limit
 	}
 	return 0
 }
@@ -484,6 +563,7 @@ func (x *SearchNotesRequest) GetLimit() int32 {
 type SearchNotesResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Notes         []*Note                `protobuf:"bytes,1,rep,name=notes,proto3" json:"notes,omitempty"`
+	PageResponse  *PageResponse          `protobuf:"bytes,2,opt,name=page_response,json=pageResponse,proto3" json:"page_response,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -521,6 +601,13 @@ func (*SearchNotesResponse) Descriptor() ([]byte, []int) {
 func (x *SearchNotesResponse) GetNotes() []*Note {
 	if x != nil {
 		return x.Notes
+	}
+	return nil
+}
+
+func (x *SearchNotesResponse) GetPageResponse() *PageResponse {
+	if x != nil {
+		return x.PageResponse
 	}
 	return nil
 }
@@ -625,10 +712,11 @@ type UpdateNoteRequest struct {
 	state  protoimpl.MessageState `protogen:"open.v1"`
 	NoteId string                 `protobuf:"bytes,1,opt,name=note_id,json=noteId,proto3" json:"note_id,omitempty"`
 	// Full replacement update. An empty body/category is allowed; title is required.
-	Title         string   `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
-	BodyMarkdown  string   `protobuf:"bytes,3,opt,name=body_markdown,json=bodyMarkdown,proto3" json:"body_markdown,omitempty"`
-	Category      string   `protobuf:"bytes,4,opt,name=category,proto3" json:"category,omitempty"`
-	Tags          []string `protobuf:"bytes,5,rep,name=tags,proto3" json:"tags,omitempty"`
+	Title         string      `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	BodyMarkdown  string      `protobuf:"bytes,3,opt,name=body_markdown,json=bodyMarkdown,proto3" json:"body_markdown,omitempty"`
+	Category      string      `protobuf:"bytes,4,opt,name=category,proto3" json:"category,omitempty"`
+	Tags          []string    `protobuf:"bytes,5,rep,name=tags,proto3" json:"tags,omitempty"`
+	Status        *NoteStatus `protobuf:"varint,6,opt,name=status,proto3,enum=notes.v1.NoteStatus,oneof" json:"status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -696,6 +784,13 @@ func (x *UpdateNoteRequest) GetTags() []string {
 		return x.Tags
 	}
 	return nil
+}
+
+func (x *UpdateNoteRequest) GetStatus() NoteStatus {
+	if x != nil && x.Status != nil {
+		return *x.Status
+	}
+	return NoteStatus_NOTE_STATUS_UNSPECIFIED
 }
 
 type UpdateNoteResponse struct {
@@ -788,6 +883,7 @@ func (x *DeleteNoteRequest) GetNoteId() string {
 
 type DeleteNoteResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	DeletedNoteId string                 `protobuf:"bytes,1,opt,name=deleted_note_id,json=deletedNoteId,proto3" json:"deleted_note_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -822,28 +918,146 @@ func (*DeleteNoteResponse) Descriptor() ([]byte, []int) {
 	return file_notes_v1_notes_proto_rawDescGZIP(), []int{14}
 }
 
+func (x *DeleteNoteResponse) GetDeletedNoteId() string {
+	if x != nil {
+		return x.DeletedNoteId
+	}
+	return ""
+}
+
+type PageRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PageSize      int32                  `protobuf:"varint,1,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	PageToken     string                 `protobuf:"bytes,2,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PageRequest) Reset() {
+	*x = PageRequest{}
+	mi := &file_notes_v1_notes_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PageRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PageRequest) ProtoMessage() {}
+
+func (x *PageRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_notes_v1_notes_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PageRequest.ProtoReflect.Descriptor instead.
+func (*PageRequest) Descriptor() ([]byte, []int) {
+	return file_notes_v1_notes_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *PageRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *PageRequest) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
+}
+
+type PageResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	NextPageToken string                 `protobuf:"bytes,1,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
+	TotalSize     int32                  `protobuf:"varint,2,opt,name=total_size,json=totalSize,proto3" json:"total_size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PageResponse) Reset() {
+	*x = PageResponse{}
+	mi := &file_notes_v1_notes_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PageResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PageResponse) ProtoMessage() {}
+
+func (x *PageResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_notes_v1_notes_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PageResponse.ProtoReflect.Descriptor instead.
+func (*PageResponse) Descriptor() ([]byte, []int) {
+	return file_notes_v1_notes_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *PageResponse) GetNextPageToken() string {
+	if x != nil {
+		return x.NextPageToken
+	}
+	return ""
+}
+
+func (x *PageResponse) GetTotalSize() int32 {
+	if x != nil {
+		return x.TotalSize
+	}
+	return 0
+}
+
 var File_notes_v1_notes_proto protoreflect.FileDescriptor
 
 const file_notes_v1_notes_proto_rawDesc = "" +
 	"\n" +
-	"\x14notes/v1/notes.proto\x12\bnotes.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xfd\x02\n" +
+	"\x14notes/v1/notes.proto\x12\bnotes.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xe9\x04\n" +
 	"\x04Note\x12\x1b\n" +
-	"\x02id\x18\x01 \x01(\tB\v\xe0A\x02\xbaH\x05r\x03\xb0\x01\x01R\x02id\x12#\n" +
-	"\x05title\x18\x02 \x01(\tB\r\xe0A\x02\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x05title\x121\n" +
-	"\rbody_markdown\x18\x03 \x01(\tB\f\xe0A\x02\xbaH\x06r\x04\x18\xc0\x9a\fR\fbodyMarkdown\x12#\n" +
-	"\bcategory\x18\x04 \x01(\tB\a\xbaH\x04r\x02\x18dR\bcategory\x12\x1e\n" +
-	"\x04tags\x18\x05 \x03(\tB\n" +
-	"\xbaH\a\x92\x01\x04\x10\x14\x18\x01R\x04tags\x12>\n" +
+	"\x02id\x18\x01 \x01(\tB\v\xe0A\x02\xbaH\x05r\x03\xb0\x01\x01R\x02id\x12h\n" +
+	"\x05title\x18\x02 \x01(\tBR\xe0A\x02\xbaHL\xba\x01B\n" +
+	"\x14note.title.not_blank\x12\x17title must not be blank\x1a\x11this.trim() != ''r\x05\x10\x01\x18\xc8\x01R\x05title\x123\n" +
+	"\rbody_markdown\x18\x03 \x01(\tB\x0e\xe0A\x02\xbaH\br\x06\x10\x01\x18\xc0\x9a\fR\fbodyMarkdown\x12#\n" +
+	"\bcategory\x18\x04 \x01(\tB\a\xbaH\x04r\x02\x18dR\bcategory\x12\x87\x01\n" +
+	"\x04tags\x18\x05 \x03(\tBs\xbaHp\xba\x01^\n" +
+	"\x17note.tags.no_blank_tags\x12\"tags must not contain blank values\x1a\x1fthis.all(tag, tag.trim() != '')\x92\x01\f\x10\x14\x18\x01\"\x06r\x04\x10\x01\x182R\x04tags\x12>\n" +
 	"\n" +
 	"created_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampB\x03\xe0A\x03R\tcreatedAt\x12>\n" +
 	"\n" +
 	"updated_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampB\x03\xe0A\x03R\tupdatedAt\x12;\n" +
-	"\rowner_user_id\x18\b \x01(\tB\x17\xe0A\x02\xbaH\x11r\x0f2\r^[1-9][0-9]*$R\vownerUserId\"\xae\x01\n" +
-	"\x11CreateNoteRequest\x12#\n" +
-	"\x05title\x18\x01 \x01(\tB\r\xe0A\x02\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x05title\x121\n" +
+	"\rowner_user_id\x18\b \x01(\tB\x17\xe0A\x02\xbaH\x11r\x0f2\r^[1-9][0-9]*$R\vownerUserId\x129\n" +
+	"\x06status\x18\t \x01(\x0e2\x14.notes.v1.NoteStatusB\v\xe0A\x03\xbaH\x05\x82\x01\x02\x10\x01R\x06status\"\x85\x04\n" +
+	"\x11CreateNoteRequest\x12h\n" +
+	"\x05title\x18\x01 \x01(\tBR\xe0A\x02\xbaHL\xba\x01B\n" +
+	"\x14note.title.not_blank\x12\x17title must not be blank\x1a\x11this.trim() != ''r\x05\x10\x01\x18\xc8\x01R\x05title\x121\n" +
 	"\rbody_markdown\x18\x02 \x01(\tB\f\xe0A\x02\xbaH\x06r\x04\x18\xc0\x9a\fR\fbodyMarkdown\x12#\n" +
-	"\bcategory\x18\x03 \x01(\tB\a\xbaH\x04r\x02\x18dR\bcategory\x12\x1c\n" +
-	"\x04tags\x18\x04 \x03(\tB\b\xbaH\x05\x92\x01\x02\x10\x14R\x04tags\"8\n" +
+	"\bcategory\x18\x03 \x01(\tB\a\xbaH\x04r\x02\x18dR\bcategory\x12\x87\x01\n" +
+	"\x04tags\x18\x04 \x03(\tBs\xbaHp\xba\x01^\n" +
+	"\x17note.tags.no_blank_tags\x12\"tags must not contain blank values\x1a\x1fthis.all(tag, tag.trim() != '')\x92\x01\f\x10\x14\x18\x01\"\x06r\x04\x10\x01\x182R\x04tags\x12\x98\x01\n" +
+	"\x06status\x18\x05 \x01(\x0e2\x14.notes.v1.NoteStatusBe\xbaHb\xba\x01Z\n" +
+	"\x1bnote.status.not_unspecified\x120status must be draft, active, final, or archived\x1a\tthis != 0\x82\x01\x02\x10\x01H\x00R\x06status\x88\x01\x01B\t\n" +
+	"\a_status\"8\n" +
 	"\x12CreateNoteResponse\x12\"\n" +
 	"\x04note\x18\x01 \x01(\v2\x0e.notes.v1.NoteR\x04note\"-\n" +
 	"\x0eGetNoteRequest\x12\x1b\n" +
@@ -851,34 +1065,57 @@ const file_notes_v1_notes_proto_rawDesc = "" +
 	"\x0fGetNoteResponse\x12\"\n" +
 	"\x04note\x18\x01 \x01(\v2\x0e.notes.v1.NoteR\x04note\"9\n" +
 	"\x16ListRecentNotesRequest\x12\x1f\n" +
-	"\x05limit\x18\x01 \x01(\x05B\t\xbaH\x06\x1a\x04\x182(\x00R\x05limit\"?\n" +
+	"\x05limit\x18\x01 \x01(\x05B\t\xbaH\x06\x1a\x04\x18d(\x00R\x05limit\"?\n" +
 	"\x17ListRecentNotesResponse\x12$\n" +
-	"\x05notes\x18\x01 \x03(\v2\x0e.notes.v1.NoteR\x05notes\"\x98\x01\n" +
+	"\x05notes\x18\x01 \x03(\v2\x0e.notes.v1.NoteR\x05notes\"\xa7\x01\n" +
 	"\x12SearchNotesRequest\x12\x1e\n" +
 	"\x05query\x18\x01 \x01(\tB\b\xbaH\x05r\x03\x18\xf4\x03R\x05query\x12\x1c\n" +
 	"\x04tags\x18\x02 \x03(\tB\b\xbaH\x05\x92\x01\x02\x10\n" +
 	"R\x04tags\x12#\n" +
-	"\bcategory\x18\x03 \x01(\tB\a\xbaH\x04r\x02\x18dR\bcategory\x12\x1f\n" +
-	"\x05limit\x18\x04 \x01(\x05B\t\xbaH\x06\x1a\x04\x182(\x00R\x05limit\";\n" +
+	"\bcategory\x18\x03 \x01(\tB\a\xbaH\x04r\x02\x18dR\bcategory\x12$\n" +
+	"\x05limit\x18\x04 \x01(\x05B\t\xbaH\x06\x1a\x04\x18d(\x00H\x00R\x05limit\x88\x01\x01B\b\n" +
+	"\x06_limit\"x\n" +
 	"\x13SearchNotesResponse\x12$\n" +
-	"\x05notes\x18\x01 \x03(\v2\x0e.notes.v1.NoteR\x05notes\"[\n" +
+	"\x05notes\x18\x01 \x03(\v2\x0e.notes.v1.NoteR\x05notes\x12;\n" +
+	"\rpage_response\x18\x02 \x01(\v2\x16.notes.v1.PageResponseR\fpageResponse\"\xc5\x01\n" +
 	"\x0eAddTagsRequest\x12$\n" +
-	"\anote_id\x18\x01 \x01(\tB\v\xe0A\x02\xbaH\x05r\x03\xb0\x01\x01R\x06noteId\x12#\n" +
-	"\x04tags\x18\x02 \x03(\tB\x0f\xe0A\x02\xbaH\t\x92\x01\x06\b\x01\x10\x14\x18\x01R\x04tags\"5\n" +
+	"\anote_id\x18\x01 \x01(\tB\v\xe0A\x02\xbaH\x05r\x03\xb0\x01\x01R\x06noteId\x12\x8c\x01\n" +
+	"\x04tags\x18\x02 \x03(\tBx\xe0A\x02\xbaHr\xba\x01^\n" +
+	"\x17note.tags.no_blank_tags\x12\"tags must not contain blank values\x1a\x1fthis.all(tag, tag.trim() != '')\x92\x01\x0e\b\x01\x10\x14\x18\x01\"\x06r\x04\x10\x01\x182R\x04tags\"5\n" +
 	"\x0fAddTagsResponse\x12\"\n" +
-	"\x04note\x18\x01 \x01(\v2\x0e.notes.v1.NoteR\x04note\"\xce\x01\n" +
+	"\x04note\x18\x01 \x01(\v2\x0e.notes.v1.NoteR\x04note\"\xa5\x04\n" +
 	"\x11UpdateNoteRequest\x12$\n" +
-	"\anote_id\x18\x01 \x01(\tB\v\xe0A\x02\xbaH\x05r\x03\xb0\x01\x01R\x06noteId\x12 \n" +
-	"\x05title\x18\x02 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x05title\x12.\n" +
+	"\anote_id\x18\x01 \x01(\tB\v\xe0A\x02\xbaH\x05r\x03\xb0\x01\x01R\x06noteId\x12e\n" +
+	"\x05title\x18\x02 \x01(\tBO\xbaHL\xba\x01B\n" +
+	"\x14note.title.not_blank\x12\x17title must not be blank\x1a\x11this.trim() != ''r\x05\x10\x01\x18\xc8\x01R\x05title\x12.\n" +
 	"\rbody_markdown\x18\x03 \x01(\tB\t\xbaH\x06r\x04\x18\xc0\x9a\fR\fbodyMarkdown\x12#\n" +
-	"\bcategory\x18\x04 \x01(\tB\a\xbaH\x04r\x02\x18dR\bcategory\x12\x1c\n" +
-	"\x04tags\x18\x05 \x03(\tB\b\xbaH\x05\x92\x01\x02\x10\x14R\x04tags\"8\n" +
+	"\bcategory\x18\x04 \x01(\tB\a\xbaH\x04r\x02\x18dR\bcategory\x12\x87\x01\n" +
+	"\x04tags\x18\x05 \x03(\tBs\xbaHp\xba\x01^\n" +
+	"\x17note.tags.no_blank_tags\x12\"tags must not contain blank values\x1a\x1fthis.all(tag, tag.trim() != '')\x92\x01\f\x10\x14\x18\x01\"\x06r\x04\x10\x01\x182R\x04tags\x12\x98\x01\n" +
+	"\x06status\x18\x06 \x01(\x0e2\x14.notes.v1.NoteStatusBe\xbaHb\xba\x01Z\n" +
+	"\x1bnote.status.not_unspecified\x120status must be draft, active, final, or archived\x1a\tthis != 0\x82\x01\x02\x10\x01H\x00R\x06status\x88\x01\x01B\t\n" +
+	"\a_status\"8\n" +
 	"\x12UpdateNoteResponse\x12\"\n" +
 	"\x04note\x18\x01 \x01(\v2\x0e.notes.v1.NoteR\x04note\"9\n" +
 	"\x11DeleteNoteRequest\x12$\n" +
-	"\anote_id\x18\x01 \x01(\tB\v\xe0A\x02\xbaH\x05r\x03\xb0\x01\x01R\x06noteId\"\x14\n" +
-	"\x12DeleteNoteResponse2\x8d\x04\n" +
+	"\anote_id\x18\x01 \x01(\tB\v\xe0A\x02\xbaH\x05r\x03\xb0\x01\x01R\x06noteId\"A\n" +
+	"\x12DeleteNoteResponse\x12+\n" +
+	"\x0fdeleted_note_id\x18\x01 \x01(\tB\x03\xe0A\x03R\rdeletedNoteId\"^\n" +
+	"\vPageRequest\x12&\n" +
+	"\tpage_size\x18\x01 \x01(\x05B\t\xbaH\x06\x1a\x04\x18d(\x00R\bpageSize\x12'\n" +
+	"\n" +
+	"page_token\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x18\x80\bR\tpageToken\"Z\n" +
+	"\fPageResponse\x12&\n" +
+	"\x0fnext_page_token\x18\x01 \x01(\tR\rnextPageToken\x12\"\n" +
+	"\n" +
+	"total_size\x18\x02 \x01(\x05B\x03\xe0A\x03R\ttotalSize*\x89\x01\n" +
+	"\n" +
+	"NoteStatus\x12\x1b\n" +
+	"\x17NOTE_STATUS_UNSPECIFIED\x10\x00\x12\x15\n" +
+	"\x11NOTE_STATUS_DRAFT\x10\x01\x12\x16\n" +
+	"\x12NOTE_STATUS_ACTIVE\x10\x02\x12\x15\n" +
+	"\x11NOTE_STATUS_FINAL\x10\x03\x12\x18\n" +
+	"\x14NOTE_STATUS_ARCHIVED\x10\x042\x8d\x04\n" +
 	"\fNotesService\x12G\n" +
 	"\n" +
 	"CreateNote\x12\x1b.notes.v1.CreateNoteRequest\x1a\x1c.notes.v1.CreateNoteResponse\x12>\n" +
@@ -905,53 +1142,61 @@ func file_notes_v1_notes_proto_rawDescGZIP() []byte {
 	return file_notes_v1_notes_proto_rawDescData
 }
 
-var file_notes_v1_notes_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_notes_v1_notes_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_notes_v1_notes_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_notes_v1_notes_proto_goTypes = []any{
-	(*Note)(nil),                    // 0: notes.v1.Note
-	(*CreateNoteRequest)(nil),       // 1: notes.v1.CreateNoteRequest
-	(*CreateNoteResponse)(nil),      // 2: notes.v1.CreateNoteResponse
-	(*GetNoteRequest)(nil),          // 3: notes.v1.GetNoteRequest
-	(*GetNoteResponse)(nil),         // 4: notes.v1.GetNoteResponse
-	(*ListRecentNotesRequest)(nil),  // 5: notes.v1.ListRecentNotesRequest
-	(*ListRecentNotesResponse)(nil), // 6: notes.v1.ListRecentNotesResponse
-	(*SearchNotesRequest)(nil),      // 7: notes.v1.SearchNotesRequest
-	(*SearchNotesResponse)(nil),     // 8: notes.v1.SearchNotesResponse
-	(*AddTagsRequest)(nil),          // 9: notes.v1.AddTagsRequest
-	(*AddTagsResponse)(nil),         // 10: notes.v1.AddTagsResponse
-	(*UpdateNoteRequest)(nil),       // 11: notes.v1.UpdateNoteRequest
-	(*UpdateNoteResponse)(nil),      // 12: notes.v1.UpdateNoteResponse
-	(*DeleteNoteRequest)(nil),       // 13: notes.v1.DeleteNoteRequest
-	(*DeleteNoteResponse)(nil),      // 14: notes.v1.DeleteNoteResponse
-	(*timestamppb.Timestamp)(nil),   // 15: google.protobuf.Timestamp
+	(NoteStatus)(0),                 // 0: notes.v1.NoteStatus
+	(*Note)(nil),                    // 1: notes.v1.Note
+	(*CreateNoteRequest)(nil),       // 2: notes.v1.CreateNoteRequest
+	(*CreateNoteResponse)(nil),      // 3: notes.v1.CreateNoteResponse
+	(*GetNoteRequest)(nil),          // 4: notes.v1.GetNoteRequest
+	(*GetNoteResponse)(nil),         // 5: notes.v1.GetNoteResponse
+	(*ListRecentNotesRequest)(nil),  // 6: notes.v1.ListRecentNotesRequest
+	(*ListRecentNotesResponse)(nil), // 7: notes.v1.ListRecentNotesResponse
+	(*SearchNotesRequest)(nil),      // 8: notes.v1.SearchNotesRequest
+	(*SearchNotesResponse)(nil),     // 9: notes.v1.SearchNotesResponse
+	(*AddTagsRequest)(nil),          // 10: notes.v1.AddTagsRequest
+	(*AddTagsResponse)(nil),         // 11: notes.v1.AddTagsResponse
+	(*UpdateNoteRequest)(nil),       // 12: notes.v1.UpdateNoteRequest
+	(*UpdateNoteResponse)(nil),      // 13: notes.v1.UpdateNoteResponse
+	(*DeleteNoteRequest)(nil),       // 14: notes.v1.DeleteNoteRequest
+	(*DeleteNoteResponse)(nil),      // 15: notes.v1.DeleteNoteResponse
+	(*PageRequest)(nil),             // 16: notes.v1.PageRequest
+	(*PageResponse)(nil),            // 17: notes.v1.PageResponse
+	(*timestamppb.Timestamp)(nil),   // 18: google.protobuf.Timestamp
 }
 var file_notes_v1_notes_proto_depIdxs = []int32{
-	15, // 0: notes.v1.Note.created_at:type_name -> google.protobuf.Timestamp
-	15, // 1: notes.v1.Note.updated_at:type_name -> google.protobuf.Timestamp
-	0,  // 2: notes.v1.CreateNoteResponse.note:type_name -> notes.v1.Note
-	0,  // 3: notes.v1.GetNoteResponse.note:type_name -> notes.v1.Note
-	0,  // 4: notes.v1.ListRecentNotesResponse.notes:type_name -> notes.v1.Note
-	0,  // 5: notes.v1.SearchNotesResponse.notes:type_name -> notes.v1.Note
-	0,  // 6: notes.v1.AddTagsResponse.note:type_name -> notes.v1.Note
-	0,  // 7: notes.v1.UpdateNoteResponse.note:type_name -> notes.v1.Note
-	1,  // 8: notes.v1.NotesService.CreateNote:input_type -> notes.v1.CreateNoteRequest
-	3,  // 9: notes.v1.NotesService.GetNote:input_type -> notes.v1.GetNoteRequest
-	5,  // 10: notes.v1.NotesService.ListRecentNotes:input_type -> notes.v1.ListRecentNotesRequest
-	7,  // 11: notes.v1.NotesService.SearchNotes:input_type -> notes.v1.SearchNotesRequest
-	9,  // 12: notes.v1.NotesService.AddTags:input_type -> notes.v1.AddTagsRequest
-	11, // 13: notes.v1.NotesService.UpdateNote:input_type -> notes.v1.UpdateNoteRequest
-	13, // 14: notes.v1.NotesService.DeleteNote:input_type -> notes.v1.DeleteNoteRequest
-	2,  // 15: notes.v1.NotesService.CreateNote:output_type -> notes.v1.CreateNoteResponse
-	4,  // 16: notes.v1.NotesService.GetNote:output_type -> notes.v1.GetNoteResponse
-	6,  // 17: notes.v1.NotesService.ListRecentNotes:output_type -> notes.v1.ListRecentNotesResponse
-	8,  // 18: notes.v1.NotesService.SearchNotes:output_type -> notes.v1.SearchNotesResponse
-	10, // 19: notes.v1.NotesService.AddTags:output_type -> notes.v1.AddTagsResponse
-	12, // 20: notes.v1.NotesService.UpdateNote:output_type -> notes.v1.UpdateNoteResponse
-	14, // 21: notes.v1.NotesService.DeleteNote:output_type -> notes.v1.DeleteNoteResponse
-	15, // [15:22] is the sub-list for method output_type
-	8,  // [8:15] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	18, // 0: notes.v1.Note.created_at:type_name -> google.protobuf.Timestamp
+	18, // 1: notes.v1.Note.updated_at:type_name -> google.protobuf.Timestamp
+	0,  // 2: notes.v1.Note.status:type_name -> notes.v1.NoteStatus
+	0,  // 3: notes.v1.CreateNoteRequest.status:type_name -> notes.v1.NoteStatus
+	1,  // 4: notes.v1.CreateNoteResponse.note:type_name -> notes.v1.Note
+	1,  // 5: notes.v1.GetNoteResponse.note:type_name -> notes.v1.Note
+	1,  // 6: notes.v1.ListRecentNotesResponse.notes:type_name -> notes.v1.Note
+	1,  // 7: notes.v1.SearchNotesResponse.notes:type_name -> notes.v1.Note
+	17, // 8: notes.v1.SearchNotesResponse.page_response:type_name -> notes.v1.PageResponse
+	1,  // 9: notes.v1.AddTagsResponse.note:type_name -> notes.v1.Note
+	0,  // 10: notes.v1.UpdateNoteRequest.status:type_name -> notes.v1.NoteStatus
+	1,  // 11: notes.v1.UpdateNoteResponse.note:type_name -> notes.v1.Note
+	2,  // 12: notes.v1.NotesService.CreateNote:input_type -> notes.v1.CreateNoteRequest
+	4,  // 13: notes.v1.NotesService.GetNote:input_type -> notes.v1.GetNoteRequest
+	6,  // 14: notes.v1.NotesService.ListRecentNotes:input_type -> notes.v1.ListRecentNotesRequest
+	8,  // 15: notes.v1.NotesService.SearchNotes:input_type -> notes.v1.SearchNotesRequest
+	10, // 16: notes.v1.NotesService.AddTags:input_type -> notes.v1.AddTagsRequest
+	12, // 17: notes.v1.NotesService.UpdateNote:input_type -> notes.v1.UpdateNoteRequest
+	14, // 18: notes.v1.NotesService.DeleteNote:input_type -> notes.v1.DeleteNoteRequest
+	3,  // 19: notes.v1.NotesService.CreateNote:output_type -> notes.v1.CreateNoteResponse
+	5,  // 20: notes.v1.NotesService.GetNote:output_type -> notes.v1.GetNoteResponse
+	7,  // 21: notes.v1.NotesService.ListRecentNotes:output_type -> notes.v1.ListRecentNotesResponse
+	9,  // 22: notes.v1.NotesService.SearchNotes:output_type -> notes.v1.SearchNotesResponse
+	11, // 23: notes.v1.NotesService.AddTags:output_type -> notes.v1.AddTagsResponse
+	13, // 24: notes.v1.NotesService.UpdateNote:output_type -> notes.v1.UpdateNoteResponse
+	15, // 25: notes.v1.NotesService.DeleteNote:output_type -> notes.v1.DeleteNoteResponse
+	19, // [19:26] is the sub-list for method output_type
+	12, // [12:19] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_notes_v1_notes_proto_init() }
@@ -959,18 +1204,22 @@ func file_notes_v1_notes_proto_init() {
 	if File_notes_v1_notes_proto != nil {
 		return
 	}
+	file_notes_v1_notes_proto_msgTypes[1].OneofWrappers = []any{}
+	file_notes_v1_notes_proto_msgTypes[7].OneofWrappers = []any{}
+	file_notes_v1_notes_proto_msgTypes[11].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_notes_v1_notes_proto_rawDesc), len(file_notes_v1_notes_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   15,
+			NumEnums:      1,
+			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_notes_v1_notes_proto_goTypes,
 		DependencyIndexes: file_notes_v1_notes_proto_depIdxs,
+		EnumInfos:         file_notes_v1_notes_proto_enumTypes,
 		MessageInfos:      file_notes_v1_notes_proto_msgTypes,
 	}.Build()
 	File_notes_v1_notes_proto = out.File

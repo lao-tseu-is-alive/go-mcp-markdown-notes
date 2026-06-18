@@ -58,6 +58,7 @@ func (s *ConnectServer) CreateNote(ctx context.Context, req *connect.Request[not
 	}
 	note, err := s.service.CreateNote(ctx, ownerUserID, CreateNoteInput{
 		Title: req.Msg.Title, BodyMarkdown: req.Msg.BodyMarkdown, Category: req.Msg.Category, Tags: req.Msg.Tags,
+		Status: NoteStatus(req.Msg.GetStatus()),
 	})
 	if err != nil {
 		return nil, s.mapError(err)
@@ -101,13 +102,16 @@ func (s *ConnectServer) SearchNotes(ctx context.Context, req *connect.Request[no
 	if err != nil {
 		return nil, err
 	}
-	items, err := s.service.SearchNotes(ctx, ownerUserID, SearchFilter{
-		Query: req.Msg.Query, Tags: req.Msg.Tags, Category: req.Msg.Category, Limit: int(req.Msg.Limit),
+	result, err := s.service.SearchNotes(ctx, ownerUserID, SearchFilter{
+		Query: req.Msg.Query, Tags: req.Msg.Tags, Category: req.Msg.Category, Limit: int(req.Msg.GetLimit()),
 	})
 	if err != nil {
 		return nil, s.mapError(err)
 	}
-	return connect.NewResponse(&notesv1.SearchNotesResponse{Notes: DomainNotesToProto(items)}), nil
+	return connect.NewResponse(&notesv1.SearchNotesResponse{
+		Notes:        DomainNotesToProto(result.Notes),
+		PageResponse: &notesv1.PageResponse{TotalSize: result.TotalSize},
+	}), nil
 }
 
 // AddTags validates the caller's write scope, parses the note UUID, and merges the supplied tags.
@@ -139,6 +143,7 @@ func (s *ConnectServer) UpdateNote(ctx context.Context, req *connect.Request[not
 	}
 	note, err := s.service.UpdateNote(ctx, ownerUserID, noteID, UpdateNoteInput{
 		Title: req.Msg.Title, BodyMarkdown: req.Msg.BodyMarkdown, Category: req.Msg.Category, Tags: req.Msg.Tags,
+		Status: NoteStatus(req.Msg.GetStatus()),
 	})
 	if err != nil {
 		return nil, s.mapError(err)
@@ -159,7 +164,7 @@ func (s *ConnectServer) DeleteNote(ctx context.Context, req *connect.Request[not
 	if err := s.service.DeleteNote(ctx, ownerUserID, noteID); err != nil {
 		return nil, s.mapError(err)
 	}
-	return connect.NewResponse(&notesv1.DeleteNoteResponse{}), nil
+	return connect.NewResponse(&notesv1.DeleteNoteResponse{DeletedNoteId: noteID.String()}), nil
 }
 
 // requireOwner extracts the authenticated user from context and verifies the required scope, returning the app user ID.

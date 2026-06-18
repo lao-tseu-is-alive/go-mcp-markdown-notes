@@ -39,7 +39,7 @@ build-frontend:
 	@echo "  >  Building frontend assets using Bun..."
 	cd cmd/notes-server/notesFront && bun run build
 
-run: build-frontend mod-download
+run: generate build-frontend mod-download
 	go run $(LDFLAGS) ./cmd/$(APP_EXECUTABLE)
 
 .PHONY: mod-download
@@ -144,14 +144,14 @@ run-notes-mcp:
 .PHONY: db-status
 ## db-status:	show dbmate migration status
 db-status:
-	cd cmd/notes-server && dbmate --env-file ../../.env status
+	dbmate --env-file .env --migrations-dir pkg/notes/module/db/migrations status
 
 .PHONY: db-up
 ## db-up:	apply pending dbmate migrations
 db-up:
-	cd cmd/notes-server && dbmate --env-file ../../.env up
+	dbmate --env-file .env --migrations-dir pkg/notes/module/db/migrations up
 
 .PHONY: db-down
 ## db-down:	roll back the latest dbmate migration
 db-down:
-	cd cmd/notes-server && dbmate --env-file ../../.env down
+	dbmate --env-file .env --migrations-dir pkg/notes/module/db/migrations down

@@ -23,7 +23,7 @@ const (
 	// DefaultLimit is the number of notes returned when the caller omits a limit.
 	DefaultLimit = 10
 	// MaxLimit is the upper bound on the number of notes that may be requested in a single call.
-	MaxLimit = 50
+	MaxLimit = 100
 )
 
 // Service contains transport-independent note business logic.
@@ -95,28 +95,28 @@ func (s *Service) ListRecentNotes(ctx context.Context, ownerUserID int64, limit 
 }
 
 // SearchNotes filters notes by free-text query, category, and tags for the given owner.
-func (s *Service) SearchNotes(ctx context.Context, ownerUserID int64, filter SearchFilter) ([]*Note, error) {
+func (s *Service) SearchNotes(ctx context.Context, ownerUserID int64, filter SearchFilter) (SearchResult, error) {
 	if err := validateOwner(ownerUserID); err != nil {
-		return nil, err
+		return SearchResult{}, err
 	}
 	limit, err := normalizeLimit(filter.Limit)
 	if err != nil {
-		return nil, err
+		return SearchResult{}, err
 	}
 	tags, err := normalizeTags(filter.Tags)
 	if err != nil {
-		return nil, err
+		return SearchResult{}, err
 	}
 	filter.Query = strings.TrimSpace(filter.Query)
 	filter.Category = strings.TrimSpace(filter.Category)
 	filter.Tags = tags
 	filter.Limit = limit
 
-	notes, err := s.repository.SearchNotes(ctx, ownerUserID, filter)
+	result, err := s.repository.SearchNotes(ctx, ownerUserID, filter)
 	if err != nil {
-		return nil, fmt.Errorf("search notes: %w", err)
+		return SearchResult{}, fmt.Errorf("search notes: %w", err)
 	}
-	return notes, nil
+	return result, nil
 }
 
 // AddTags merges the supplied tags with the note's existing tags, deduplicates, and enforces MaxTags.
@@ -186,12 +186,26 @@ func (s *Service) DeleteNote(ctx context.Context, ownerUserID int64, noteID uuid
 
 func normalizeCreateInput(input CreateNoteInput) (CreateNoteInput, error) {
 	title, body, category, tags, err := normalizeNoteFields(input.Title, input.BodyMarkdown, input.Category, input.Tags)
-	return CreateNoteInput{Title: title, BodyMarkdown: body, Category: category, Tags: tags}, err
+	if err != nil {
+		return CreateNoteInput{}, err
+	}
+	status := input.Status
+	if status == NoteStatusUnspecified {
+		status = NoteStatusActive
+	}
+	return CreateNoteInput{Title: title, BodyMarkdown: body, Category: category, Tags: tags, Status: status}, nil
 }
 
 func normalizeUpdateInput(input UpdateNoteInput) (UpdateNoteInput, error) {
 	title, body, category, tags, err := normalizeNoteFields(input.Title, input.BodyMarkdown, input.Category, input.Tags)
-	return UpdateNoteInput{Title: title, BodyMarkdown: body, Category: category, Tags: tags}, err
+	if err != nil {
+		return UpdateNoteInput{}, err
+	}
+	status := input.Status
+	if status == NoteStatusUnspecified {
+		status = NoteStatusActive
+	}
+	return UpdateNoteInput{Title: title, BodyMarkdown: body, Category: category, Tags: tags, Status: status}, nil
 }
 
 func normalizeNoteFields(title, body, category string, tags []string) (string, string, string, []string, error) {

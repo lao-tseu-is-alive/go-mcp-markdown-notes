@@ -21,8 +21,24 @@ type NoteOutput struct {
 	BodyMarkdown string   `json:"body_markdown"`
 	Category     string   `json:"category,omitempty"`
 	Tags         []string `json:"tags,omitempty"`
+	Status       string   `json:"status,omitempty"`
 	CreatedAt    string   `json:"created_at,omitempty"`
 	UpdatedAt    string   `json:"updated_at,omitempty"`
+}
+
+func noteStatusToString(s notesv1.NoteStatus) string {
+	switch s {
+	case notesv1.NoteStatus_NOTE_STATUS_DRAFT:
+		return "draft"
+	case notesv1.NoteStatus_NOTE_STATUS_ACTIVE:
+		return "active"
+	case notesv1.NoteStatus_NOTE_STATUS_FINAL:
+		return "final"
+	case notesv1.NoteStatus_NOTE_STATUS_ARCHIVED:
+		return "archived"
+	default:
+		return ""
+	}
 }
 
 func protoNoteToOutput(n *notesv1.Note) NoteOutput {
@@ -35,6 +51,7 @@ func protoNoteToOutput(n *notesv1.Note) NoteOutput {
 		BodyMarkdown: n.BodyMarkdown,
 		Category:     n.Category,
 		Tags:         n.Tags,
+		Status:       noteStatusToString(n.Status),
 		CreatedAt:    protoTimestampToString(n.CreatedAt),
 		UpdatedAt:    protoTimestampToString(n.UpdatedAt),
 	}
@@ -84,14 +101,14 @@ type GetNoteInput struct {
 }
 
 type ListRecentNotesInput struct {
-	Limit int `json:"limit,omitempty" jsonschema:"maximum number of notes to return (default 10, max 50)"`
+	Limit int `json:"limit,omitempty" jsonschema:"maximum number of notes to return (default 10, max 100)"`
 }
 
 type SearchNotesInput struct {
 	Query    string   `json:"query,omitempty" jsonschema:"text searched in title and body"`
 	Tags     []string `json:"tags,omitempty" jsonschema:"notes must carry all of these tags"`
 	Category string   `json:"category,omitempty" jsonschema:"exact category filter"`
-	Limit    int      `json:"limit,omitempty" jsonschema:"maximum number of notes to return (default 10, max 50)"`
+	Limit    int      `json:"limit,omitempty" jsonschema:"maximum number of notes to return (default 10, max 100)"`
 }
 
 type AddTagsInput struct {
@@ -177,8 +194,13 @@ func NewServer(client notesv1connect.NotesServiceClient, version string) (*mcp.S
 		Name:        "search_notes",
 		Description: "Search notes by free text (title and body), tags and category.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, input SearchNotesInput) (*mcp.CallToolResult, NotesResult, error) {
+		var limitPtr *int32
+		if input.Limit > 0 {
+			l := int32(input.Limit)
+			limitPtr = &l
+		}
 		res, err := client.SearchNotes(ctx, connect.NewRequest(&notesv1.SearchNotesRequest{
-			Query: input.Query, Tags: input.Tags, Category: input.Category, Limit: int32(input.Limit),
+			Query: input.Query, Tags: input.Tags, Category: input.Category, Limit: limitPtr,
 		}))
 		if err != nil {
 			return nil, NotesResult{}, mapRPCError("search_notes", err)

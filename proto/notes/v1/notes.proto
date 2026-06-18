@@ -2,11 +2,11 @@ syntax = "proto3";
 
 package notes.v1;
 
-option go_package = "github.com/lao-tseu-is-alive/go-mcp-markdown-notes/gen/notes/v1;notesv1";
-
 import "buf/validate/validate.proto";
 import "google/api/field_behavior.proto";
 import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/lao-tseu-is-alive/go-mcp-markdown-notes/gen/notes/v1;notesv1";
 
 service NotesService {
   rpc CreateNote(CreateNoteRequest) returns (CreateNoteResponse);
@@ -18,28 +18,66 @@ service NotesService {
   rpc DeleteNote(DeleteNoteRequest) returns (DeleteNoteResponse);
 }
 
+// NoteStatus describes the lifecycle state of a note.
+//
+// The zero value is intentionally unspecified so clients do not accidentally
+// create a meaningful status by omitting the field.
+enum NoteStatus {
+  NOTE_STATUS_UNSPECIFIED = 0;
+
+  // The note is still being drafted and may be incomplete.
+  NOTE_STATUS_DRAFT = 1;
+
+  // The note is active/current and should appear in normal listings.
+  NOTE_STATUS_ACTIVE = 2;
+
+  // The note is considered complete/final but still useful in normal access.
+  NOTE_STATUS_FINAL = 3;
+
+  // The note is preserved but hidden from normal active views.
+  NOTE_STATUS_ARCHIVED = 4;
+}
+
 // Core entity
 message Note {
-  string id = 1 [(google.api.field_behavior) = REQUIRED, (buf.validate.field).string.uuid = true];
+  string id = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string.uuid = true
+  ];
 
   string title = 2 [
     (google.api.field_behavior) = REQUIRED,
     (buf.validate.field).string.min_len = 1,
-    (buf.validate.field).string.max_len = 200
+    (buf.validate.field).string.max_len = 200,
+    (buf.validate.field).cel = {
+      id: "note.title.not_blank"
+      message: "title must not be blank"
+      expression: "this.trim() != ''"
+    }
   ];
 
   string body_markdown = 3 [
     (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string.min_len = 1,
     (buf.validate.field).string.max_len = 200000
   ];
 
-  string category = 4 [
-    (buf.validate.field).string.max_len = 100
-  ];
+  string category = 4 [(buf.validate.field).string.max_len = 100];
 
   repeated string tags = 5 [
     (buf.validate.field).repeated.max_items = 20,
-    (buf.validate.field).repeated.unique = true
+    (buf.validate.field).repeated.unique = true,
+    (buf.validate.field).repeated.items = {
+      string: {
+        min_len: 1
+        max_len: 50
+      }
+    },
+    (buf.validate.field).cel = {
+      id: "note.tags.no_blank_tags"
+      message: "tags must not contain blank values"
+      expression: "this.all(tag, tag.trim() != '')"
+    }
   ];
 
   google.protobuf.Timestamp created_at = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
@@ -49,15 +87,54 @@ message Note {
     (google.api.field_behavior) = REQUIRED,
     (buf.validate.field).string.pattern = "^[1-9][0-9]*$"
   ];
+
+  NoteStatus status = 9 [
+    (google.api.field_behavior) = OUTPUT_ONLY,
+    (buf.validate.field).enum.defined_only = true
+  ];
 }
 
 // === Requests ===
 
 message CreateNoteRequest {
-  string title = 1 [(google.api.field_behavior) = REQUIRED, (buf.validate.field).string.min_len = 1, (buf.validate.field).string.max_len = 200];
-  string body_markdown = 2 [(google.api.field_behavior) = REQUIRED, (buf.validate.field).string.max_len = 200000];
+  string title = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 200,
+    (buf.validate.field).cel = {
+      id: "note.title.not_blank"
+      message: "title must not be blank"
+      expression: "this.trim() != ''"
+    }
+  ];
+  string body_markdown = 2 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string.max_len = 200000
+  ];
   string category = 3 [(buf.validate.field).string.max_len = 100];
-  repeated string tags = 4 [(buf.validate.field).repeated.max_items = 20];
+  repeated string tags = 4 [
+    (buf.validate.field).repeated.max_items = 20,
+    (buf.validate.field).repeated.unique = true,
+    (buf.validate.field).repeated.items = {
+      string: {
+        min_len: 1
+        max_len: 50
+      }
+    },
+    (buf.validate.field).cel = {
+      id: "note.tags.no_blank_tags"
+      message: "tags must not contain blank values"
+      expression: "this.all(tag, tag.trim() != '')"
+    }
+  ];
+  optional NoteStatus status = 5 [
+    (buf.validate.field).enum.defined_only = true,
+    (buf.validate.field).cel = {
+      id: "note.status.not_unspecified"
+      message: "status must be draft, active, final, or archived"
+      expression: "this != 0"
+    }
+  ];
 }
 
 message CreateNoteResponse {
@@ -65,7 +142,10 @@ message CreateNoteResponse {
 }
 
 message GetNoteRequest {
-  string id = 1 [(google.api.field_behavior) = REQUIRED, (buf.validate.field).string.uuid = true];
+  string id = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string.uuid = true
+  ];
 }
 
 message GetNoteResponse {
@@ -73,32 +153,52 @@ message GetNoteResponse {
 }
 
 message ListRecentNotesRequest {
-  int32 limit = 1 [(buf.validate.field).int32.gte = 0, (buf.validate.field).int32.lte = 50];
+  int32 limit = 1 [
+    (buf.validate.field).int32.gte = 0,
+    (buf.validate.field).int32.lte = 100
+  ];
 }
 
 message ListRecentNotesResponse {
   repeated Note notes = 1;
 }
 
-
 message SearchNotesRequest {
   string query = 1 [(buf.validate.field).string.max_len = 500];
   repeated string tags = 2 [(buf.validate.field).repeated.max_items = 10];
   string category = 3 [(buf.validate.field).string.max_len = 100];
-  int32 limit = 4 [(buf.validate.field).int32.gte = 0, (buf.validate.field).int32.lte = 50];
+  optional int32 limit = 4 [
+    (buf.validate.field).int32.gte = 0,
+    (buf.validate.field).int32.lte = 100
+  ];
 }
 
 message SearchNotesResponse {
   repeated Note notes = 1;
+  PageResponse page_response = 2;
 }
 
 message AddTagsRequest {
-  string note_id = 1 [(google.api.field_behavior) = REQUIRED, (buf.validate.field).string.uuid = true];
+  string note_id = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string.uuid = true
+  ];
   repeated string tags = 2 [
     (google.api.field_behavior) = REQUIRED,
     (buf.validate.field).repeated.min_items = 1,
     (buf.validate.field).repeated.max_items = 20,
-    (buf.validate.field).repeated.unique = true
+    (buf.validate.field).repeated.unique = true,
+    (buf.validate.field).repeated.items = {
+      string: {
+        min_len: 1
+        max_len: 50
+      }
+    },
+    (buf.validate.field).cel = {
+      id: "note.tags.no_blank_tags"
+      message: "tags must not contain blank values"
+      expression: "this.all(tag, tag.trim() != '')"
+    }
   ];
 }
 
@@ -113,10 +213,40 @@ message UpdateNoteRequest {
   ];
 
   // Full replacement update. An empty body/category is allowed; title is required.
-  string title = 2 [(buf.validate.field).string.min_len = 1, (buf.validate.field).string.max_len = 200];
+  string title = 2 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 200,
+    (buf.validate.field).cel = {
+      id: "note.title.not_blank"
+      message: "title must not be blank"
+      expression: "this.trim() != ''"
+    }
+  ];
   string body_markdown = 3 [(buf.validate.field).string.max_len = 200000];
   string category = 4 [(buf.validate.field).string.max_len = 100];
-  repeated string tags = 5 [(buf.validate.field).repeated.max_items = 20];
+  repeated string tags = 5 [
+    (buf.validate.field).repeated.max_items = 20,
+    (buf.validate.field).repeated.unique = true,
+    (buf.validate.field).repeated.items = {
+      string: {
+        min_len: 1
+        max_len: 50
+      }
+    },
+    (buf.validate.field).cel = {
+      id: "note.tags.no_blank_tags"
+      message: "tags must not contain blank values"
+      expression: "this.all(tag, tag.trim() != '')"
+    }
+  ];
+  optional NoteStatus status = 6 [
+    (buf.validate.field).enum.defined_only = true,
+    (buf.validate.field).cel = {
+      id: "note.status.not_unspecified"
+      message: "status must be draft, active, final, or archived"
+      expression: "this != 0"
+    }
+  ];
 }
 
 message UpdateNoteResponse {
@@ -124,7 +254,26 @@ message UpdateNoteResponse {
 }
 
 message DeleteNoteRequest {
-  string note_id = 1 [(google.api.field_behavior) = REQUIRED, (buf.validate.field).string.uuid = true];
+  string note_id = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string.uuid = true
+  ];
 }
 
-message DeleteNoteResponse {}
+message DeleteNoteResponse {
+  string deleted_note_id = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+message PageRequest {
+  int32 page_size = 1 [
+    (buf.validate.field).int32.gte = 0,
+    (buf.validate.field).int32.lte = 100
+  ];
+
+  string page_token = 2 [(buf.validate.field).string.max_len = 1024];
+}
+
+message PageResponse {
+  string next_page_token = 1;
+  int32 total_size = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+}

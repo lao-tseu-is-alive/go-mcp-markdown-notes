@@ -24,6 +24,7 @@ func DomainNoteToProto(note *Note) *notesv1.Note {
 		Tags:         append([]string(nil), note.Tags...),
 		CreatedAt:    timestamppb.New(note.CreatedAt),
 		UpdatedAt:    timestamppb.New(note.UpdatedAt),
+		Status:       notesv1.NoteStatus(note.Status),
 	}
 }
 
@@ -66,6 +67,7 @@ func ProtoNoteToDomain(note *notesv1.Note) (*Note, error) {
 		Tags:         append([]string(nil), note.Tags...),
 		CreatedAt:    createdAt,
 		UpdatedAt:    updatedAt,
+		Status:       NoteStatus(note.Status),
 	}, nil
 }
 

@@ -7,6 +7,7 @@
 ## Features
 
 - **Connect RPC Notes Service**: Exposes robust RPC methods for creating, listing, searching, tagging, updating, and deleting notes.
+- **Note Lifecycle Status**: Notes carry a status (`draft`, `active`, `final`, `archived`). New notes default to `active` when the field is omitted. Status can be set on create and changed at any time via update.
 - **Embedded Web Client**: A responsive single-page application built with Bun, TypeScript, and a modern glassmorphic UI.
 - **Seamless SSO Sign-in**: One-click "Sign in with Google / GitHub" via [go-cloud-k8s-auth](https://github.com/lao-tseu-is-alive/go-cloud-k8s-auth) — no token copy-paste. The frontend silently mints short-lived JWTs from the SSO session cookie and keeps them in memory only.
 - **MCP Server (`notes-mcp`)**: A stdio Model Context Protocol server exposing all note operations as tools for Claude Code / Claude Desktop, authenticated with a Personal Access Token.
@@ -30,7 +31,7 @@ cp .env_sample .env
 > **Environment Quotation Rule**: Surrounding double quotes `""` on values must be avoided in the `.env` file. Because the `Makefile` exports variables to child processes via `include .env`, surrounding quotes are preserved literally, leading to signature verification and OAuth redirect mismatches.
 
 ### 2. Setup the Database
-Use `dbmate` to run migrations:
+The server auto-migrates at startup via the embedded migrations in `pkg/notes/module/db/migrations/`. For manual control (CI, rollbacks) `dbmate` targets are also provided:
 ```bash
 # Check migration status
 make db-status
@@ -356,14 +357,25 @@ All RPC actions are routed via POST to `/{package}.{service}/{method}` (e.g., `/
 - `Connect-Protocol-Version: 1`
 - `Authorization: Bearer <token>`
 
+### NoteStatus enum
+
+| Value | Int | Meaning |
+|-------|-----|---------|
+| `NOTE_STATUS_DRAFT` | 1 | Still being drafted, may be incomplete |
+| `NOTE_STATUS_ACTIVE` | 2 | Current/active — default when omitted |
+| `NOTE_STATUS_FINAL` | 3 | Complete and final, still visible in normal access |
+| `NOTE_STATUS_ARCHIVED` | 4 | Preserved but hidden from active views |
+
+`Note.status` is `OUTPUT_ONLY`; it is set via the `status` field of create/update requests.
+
 ### Service RPC Definitions:
-1. `CreateNote` (`CreateNoteRequest` -> `CreateNoteResponse`)
+1. `CreateNote` (`CreateNoteRequest` -> `CreateNoteResponse`) — optional `status` field (defaults to `ACTIVE`)
 2. `GetNote` (`GetNoteRequest` -> `GetNoteResponse`)
-3. `ListRecentNotes` (`ListRecentNotesRequest` -> `ListRecentNotesResponse`)
-4. `SearchNotes` (`SearchNotesRequest` -> `SearchNotesResponse`)
+3. `ListRecentNotes` (`ListRecentNotesRequest` -> `ListRecentNotesResponse`) — `limit` 0-100
+4. `SearchNotes` (`SearchNotesRequest` -> `SearchNotesResponse`) — optional `limit` 0-100; response includes `pageResponse.totalSize` (total matching records before the limit is applied)
 5. `AddTags` (`AddTagsRequest` -> `AddTagsResponse`)
-6. `UpdateNote` (`UpdateNoteRequest` -> `UpdateNoteResponse`)
-7. `DeleteNote` (`DeleteNoteRequest` -> `DeleteNoteResponse`) — requires `notes:write`; deleting another user's note returns `not_found`
+6. `UpdateNote` (`UpdateNoteRequest` -> `UpdateNoteResponse`) — optional `status` field
+7. `DeleteNote` (`DeleteNoteRequest` -> `DeleteNoteResponse`) — requires `notes:write`; deleting another user's note returns `not_found`; response includes `deletedNoteId`
 
 ### Plain HTTP endpoints
 

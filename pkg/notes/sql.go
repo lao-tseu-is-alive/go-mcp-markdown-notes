@@ -1,14 +1,18 @@
 package notes
 
 const noteColumns = `
-n.id, n.owner_user_id, n.title, n.body_markdown, n.category,
+n.id, n.owner_user_id, n.title, n.body_markdown, n.category, n.status,
 COALESCE(array_agg(nt.tag ORDER BY nt.tag) FILTER (WHERE nt.tag IS NOT NULL), ARRAY[]::text[]) AS tags,
 n.created_at, n.updated_at`
 
+// searchNoteColumns extends noteColumns with a window-function total count evaluated before LIMIT.
+const searchNoteColumns = noteColumns + `,
+COUNT(*) OVER() AS total_count`
+
 const createNoteSQL = `
-INSERT INTO notes (owner_user_id, title, body_markdown, category)
-VALUES ($1, $2, $3, $4)
-RETURNING id, owner_user_id, title, body_markdown, category, created_at, updated_at;`
+INSERT INTO notes (owner_user_id, title, body_markdown, category, status)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, owner_user_id, title, body_markdown, category, status, created_at, updated_at;`
 
 const insertTagSQL = `
 INSERT INTO note_tags (note_id, owner_user_id, tag)
@@ -32,7 +36,7 @@ ORDER BY n.updated_at DESC
 LIMIT $2;`
 
 const searchNotesSQL = `
-SELECT ` + noteColumns + `
+SELECT ` + searchNoteColumns + `
 FROM notes n
 LEFT JOIN note_tags nt ON nt.note_id = n.id AND nt.owner_user_id = n.owner_user_id
 WHERE n.owner_user_id = $1
@@ -53,7 +57,7 @@ LIMIT $5;`
 
 const updateNoteSQL = `
 UPDATE notes
-SET title = $3, body_markdown = $4, category = $5, updated_at = clock_timestamp()
+SET title = $3, body_markdown = $4, category = $5, status = $6, updated_at = clock_timestamp()
 WHERE owner_user_id = $1 AND id = $2
 RETURNING id;`
 

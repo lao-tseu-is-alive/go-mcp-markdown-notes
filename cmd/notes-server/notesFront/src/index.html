@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
-    
+
     <style>
         :root {
             --bg-primary: #090d16;
@@ -39,35 +39,70 @@
             background-color: var(--bg-primary);
             color: var(--text-main);
             min-height: 100vh;
-            padding: 2rem;
-            background-image: 
+            padding: clamp(1rem, 2vw, 2rem);
+            background-image:
                 radial-gradient(circle at 5% 10%, rgba(168, 85, 247, 0.15) 0%, transparent 35%),
                 radial-gradient(circle at 95% 90%, rgba(59, 130, 246, 0.15) 0%, transparent 35%);
             background-attachment: fixed;
             display: flex;
             justify-content: center;
+            overflow-x: hidden;
         }
 
         .container {
-            width: 100%;
-            max-width: 1200px;
+            width: min(100%, 1600px);
             display: grid;
-            grid-template-columns: 1fr;
-            gap: 2rem;
-        }
-
-        @media (min-width: 1024px) {
-            .container {
-                grid-template-columns: 1.2fr 0.8fr;
-            }
-            .header-row {
-                grid-column: span 2;
-            }
+            grid-template-columns: minmax(0, 1fr);
+            gap: clamp(1rem, 2vw, 2rem);
+            min-width: 0;
         }
 
         .header-row {
             text-align: center;
             margin-bottom: 1rem;
+            min-width: 0;
+        }
+
+        .workspace-tabs {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            min-width: 0;
+            padding: 0.35rem;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+        }
+
+        button.workspace-tab {
+            flex: 1 1 10rem;
+            min-width: 0;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            background: transparent;
+            border: 1px solid transparent;
+            color: var(--text-muted);
+            box-shadow: none;
+        }
+
+        button.workspace-tab:hover {
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text-main);
+        }
+
+        button.workspace-tab.active {
+            background: rgba(168, 85, 247, 0.16);
+            border-color: rgba(168, 85, 247, 0.35);
+            color: #ffffff;
+        }
+
+        .workspace-panel {
+            display: none;
+            min-width: 0;
+        }
+
+        .workspace-panel.active {
+            display: block;
         }
 
         h1 {
@@ -96,6 +131,7 @@
             padding: 2rem;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2), var(--shadow-glow);
             transition: transform 0.3s ease, box-shadow 0.3s ease;
+            min-width: 0;
         }
 
         .card:hover {
@@ -112,6 +148,8 @@
             gap: 0.75rem;
             border-bottom: 1px solid rgba(255, 255, 255, 0.05);
             padding-bottom: 0.75rem;
+            flex-wrap: wrap;
+            min-width: 0;
         }
 
         /* Form Controls */
@@ -285,6 +323,7 @@
             border-bottom: 1px solid rgba(255, 255, 255, 0.08);
             margin-bottom: 1.5rem;
             padding-bottom: 0.5rem;
+            flex-wrap: wrap;
         }
 
         .tab {
@@ -331,6 +370,7 @@
             max-height: 550px;
             overflow-y: auto;
             padding-right: 0.5rem;
+            min-width: 0;
         }
 
         .note-card {
@@ -340,6 +380,7 @@
             padding: 1.25rem;
             transition: all 0.2s ease;
             position: relative;
+            min-width: 0;
         }
 
         .note-card:hover {
@@ -361,12 +402,14 @@
             align-items: center;
             gap: 0.5rem;
             flex-wrap: wrap;
+            min-width: 0;
         }
 
         .note-title {
             font-size: 1.1rem;
             font-weight: 600;
             color: #f3f4f6;
+            overflow-wrap: anywhere;
         }
 
         .note-category {
@@ -401,6 +444,8 @@
             padding: 0.75rem;
             border-radius: 6px;
             border-left: 3px solid var(--accent-purple);
+            min-width: 0;
+            overflow-wrap: anywhere;
         }
 
         .note-footer {
@@ -409,6 +454,8 @@
             align-items: center;
             font-size: 0.8rem;
             color: var(--text-muted);
+            gap: 1rem;
+            flex-wrap: wrap;
         }
 
         .note-tags {
@@ -460,6 +507,7 @@
             display: flex;
             flex-direction: column;
             height: 100%;
+            min-width: 0;
         }
 
         .console-header {
@@ -491,8 +539,12 @@
             font-size: 0.8rem;
             color: #38bdf8;
             height: 480px;
-            overflow-y: auto;
+            width: 100%;
+            max-width: 100%;
+            overflow: auto;
             white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            word-break: break-word;
             box-shadow: inset 0 2px 8px rgba(0,0,0,0.8);
         }
 
@@ -528,7 +580,10 @@
             border-radius: 6px;
             margin-top: 0.25rem;
             display: block;
+            max-width: 100%;
             overflow-x: auto;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
         }
 
         /* Notifications Alert */
@@ -588,6 +643,32 @@
         ::-webkit-scrollbar-thumb:hover {
             background: rgba(255, 255, 255, 0.3);
         }
+
+        @media (max-width: 720px) {
+            h1 {
+                font-size: 2rem;
+            }
+
+            button.workspace-tab {
+                flex-basis: calc(50% - 0.5rem);
+            }
+
+            .card {
+                padding: 1.25rem;
+            }
+
+            .form-group.row {
+                grid-template-columns: 1fr;
+            }
+
+            .note-header {
+                flex-direction: column;
+            }
+
+            .note-actions {
+                flex-wrap: wrap;
+            }
+        }
     </style>
 </head>
 <body>
@@ -599,8 +680,14 @@
             <p class="subtitle">Interactive Test Console for Notes service using Connect RPC Protocol</p>
         </div>
 
-        <!-- LEFT COLUMN: CONTROLS & VIEWER -->
-        <div style="display: flex; flex-direction: column; gap: 2rem;">
+        <div class="workspace-tabs" role="tablist" aria-label="Notes client sections">
+            <button class="workspace-tab active" type="button" data-workspace-tab="auth" aria-controls="workspace-panel-auth" aria-selected="true">Authentication</button>
+            <button class="workspace-tab" type="button" data-workspace-tab="create" aria-controls="workspace-panel-create" aria-selected="false">Create Note</button>
+            <button class="workspace-tab" type="button" data-workspace-tab="notes" aria-controls="workspace-panel-notes" aria-selected="false">List Notes</button>
+            <button class="workspace-tab" type="button" data-workspace-tab="debug" aria-controls="workspace-panel-debug" aria-selected="false">Debug Console</button>
+        </div>
+
+        <section class="workspace-panel active" id="workspace-panel-auth" data-workspace-panel="auth">
             <!-- AUTHENTICATION CARD -->
             <div class="card">
                 <div class="card-title">
@@ -661,18 +748,13 @@
                     </div>
                 </div>
             </div>
+        </section>
 
-            <!-- OPERATIONS CARD -->
+        <section class="workspace-panel" id="workspace-panel-create" data-workspace-panel="create">
+            <!-- CREATE / UPDATE CARD -->
             <div class="card">
                 <div class="card-title">
-                    <span>⚡ RPC Operations</span>
-                </div>
-
-                <div class="tabs">
-                    <div class="tab active" data-op-tab="create">Create Note</div>
-                    <div class="tab" data-op-tab="list">List Notes</div>
-                    <div class="tab" data-op-tab="search">Search</div>
-                    <div class="tab" data-op-tab="update" id="tab-update-toggle" style="display: none;">Update Note</div>
+                    <span>⚡ Create Note</span>
                 </div>
 
                 <!-- Create Note Panel -->
@@ -707,44 +789,6 @@
                         </div>
                         <button type="submit" id="btn-submit-create" class="btn-primary" style="width: 100%;">
                             Create Note (CreateNote RPC)
-                        </button>
-                    </form>
-                </div>
-
-                <!-- List Notes Panel -->
-                <div class="tab-panel" id="op-panel-list">
-                    <div class="form-group">
-                        <label for="list-limit">Limit (max notes to retrieve)</label>
-                        <input type="number" id="list-limit" value="10" min="1" max="100" />
-                    </div>
-                    <button id="btn-submit-list" class="btn-primary" style="width: 100%;">
-                        Fetch Notes (ListRecentNotes RPC)
-                    </button>
-                </div>
-
-                <!-- Search Panel -->
-                <div class="tab-panel" id="op-panel-search">
-                    <form id="search-note-form" onsubmit="return false;">
-                        <div class="form-group">
-                            <label for="search-query">Text Query</label>
-                            <input type="text" id="search-query" placeholder="Search title or body..." />
-                        </div>
-                        <div class="form-group row">
-                            <div>
-                                <label for="search-category">Category</label>
-                                <input type="text" id="search-category" placeholder="e.g. devops" />
-                            </div>
-                            <div>
-                                <label for="search-tags">Tags (comma separated)</label>
-                                <input type="text" id="search-tags" placeholder="e.g. docker, server" />
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="search-limit">Limit</label>
-                            <input type="number" id="search-limit" value="10" min="1" max="100" />
-                        </div>
-                        <button type="submit" id="btn-submit-search" class="btn-primary" style="width: 100%;">
-                            Execute Search (SearchNotes RPC)
                         </button>
                     </form>
                 </div>
@@ -791,14 +835,57 @@
                     </form>
                 </div>
             </div>
+        </section>
 
-            <!-- NOTES DISPLAY CARD -->
+        <section class="workspace-panel" id="workspace-panel-notes" data-workspace-panel="notes">
+            <!-- LIST / SEARCH / DISPLAY CARD -->
             <div class="card" style="flex-grow: 1;">
                 <div class="card-title">
-                    <span>📋 Notes Database View</span>
+                    <span>📋 List Notes</span>
                     <span style="flex-grow: 1;"></span>
                     <span id="notes-count" style="font-size: 0.8rem; background: rgba(255,255,255,0.05); padding: 0.25rem 0.6rem; border-radius: 6px; color: var(--text-muted);">0 notes loaded</span>
                 </div>
+
+                <div class="form-group row">
+                    <div>
+                        <label for="list-limit">Recent Notes Limit</label>
+                        <input type="number" id="list-limit" value="10" min="1" max="100" />
+                    </div>
+                    <div style="display: flex; align-items: end;">
+                        <button id="btn-submit-list" class="btn-primary" style="width: 100%;">
+                            Fetch Recent Notes
+                        </button>
+                    </div>
+                </div>
+
+                <form id="search-note-form" onsubmit="return false;">
+                    <div class="form-group">
+                        <label for="search-query">Search Text</label>
+                        <input type="text" id="search-query" placeholder="Search title or body..." />
+                    </div>
+                    <div class="form-group row">
+                        <div>
+                            <label for="search-category">Category</label>
+                            <input type="text" id="search-category" placeholder="e.g. devops" />
+                        </div>
+                        <div>
+                            <label for="search-tags">Tags (comma separated)</label>
+                            <input type="text" id="search-tags" placeholder="e.g. docker, server" />
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <div>
+                            <label for="search-limit">Search Limit</label>
+                            <input type="number" id="search-limit" value="10" min="1" max="100" />
+                        </div>
+                        <div style="display: flex; align-items: end;">
+                            <button type="submit" id="btn-submit-search" class="btn-accent" style="width: 100%;">
+                                Search Notes
+                            </button>
+                        </div>
+                    </div>
+                </form>
+
                 <div id="notes-container" class="notes-list">
                     <div style="text-align: center; color: var(--text-muted); padding: 3rem 0;">
                         <span style="font-size: 2.5rem; display: block; margin-bottom: 0.5rem;">📂</span>
@@ -806,8 +893,9 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </section>
 
+        <section class="workspace-panel" id="workspace-panel-debug" data-workspace-panel="debug">
         <!-- RIGHT COLUMN: DEBUG CONSOLE -->
         <div class="card">
             <div class="console-container">
@@ -818,6 +906,7 @@
                 <div class="console-output" id="debug-output">Connected debugger. Operations logs will appear here...</div>
             </div>
         </div>
+        </section>
     </div>
 
     <!-- TOAST NOTIFICATION -->

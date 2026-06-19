@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"connectrpc.com/connect"
@@ -39,6 +40,23 @@ func noteStatusToString(s notesv1.NoteStatus) string {
 	default:
 		return ""
 	}
+}
+
+func noteStatusFromString(s string) *notesv1.NoteStatus {
+	var v notesv1.NoteStatus
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "draft":
+		v = notesv1.NoteStatus_NOTE_STATUS_DRAFT
+	case "active":
+		v = notesv1.NoteStatus_NOTE_STATUS_ACTIVE
+	case "final":
+		v = notesv1.NoteStatus_NOTE_STATUS_FINAL
+	case "archived":
+		v = notesv1.NoteStatus_NOTE_STATUS_ARCHIVED
+	default:
+		return nil
+	}
+	return &v
 }
 
 func protoNoteToOutput(n *notesv1.Note) NoteOutput {
@@ -94,6 +112,7 @@ type CreateNoteInput struct {
 	BodyMarkdown string   `json:"body_markdown" jsonschema:"note content in Markdown format"`
 	Category     string   `json:"category,omitempty" jsonschema:"optional category, e.g. devops"`
 	Tags         []string `json:"tags,omitempty" jsonschema:"optional lowercase tags"`
+	Status       string   `json:"status,omitempty" jsonschema:"lifecycle status: draft, active, final, or archived (default: active)"`
 }
 
 type GetNoteInput struct {
@@ -122,6 +141,7 @@ type UpdateNoteInput struct {
 	BodyMarkdown string   `json:"body_markdown" jsonschema:"new note content in Markdown format"`
 	Category     string   `json:"category,omitempty" jsonschema:"new category"`
 	Tags         []string `json:"tags,omitempty" jsonschema:"new full set of tags (replaces existing tags)"`
+	Status       string   `json:"status,omitempty" jsonschema:"lifecycle status: draft, active, final, or archived"`
 }
 
 type DeleteNoteInput struct {
@@ -158,9 +178,11 @@ func NewServer(client notesv1connect.NotesServiceClient, version string) (*mcp.S
 		Name:        "create_note",
 		Description: "Create a new Markdown note with optional category and tags.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, input CreateNoteInput) (*mcp.CallToolResult, NoteResult, error) {
-		res, err := client.CreateNote(ctx, connect.NewRequest(&notesv1.CreateNoteRequest{
+		req := &notesv1.CreateNoteRequest{
 			Title: input.Title, BodyMarkdown: input.BodyMarkdown, Category: input.Category, Tags: input.Tags,
-		}))
+			Status: noteStatusFromString(input.Status),
+		}
+		res, err := client.CreateNote(ctx, connect.NewRequest(req))
 		if err != nil {
 			return nil, NoteResult{}, mapRPCError("create_note", err)
 		}
@@ -229,6 +251,7 @@ func NewServer(client notesv1connect.NotesServiceClient, version string) (*mcp.S
 		res, err := client.UpdateNote(ctx, connect.NewRequest(&notesv1.UpdateNoteRequest{
 			NoteId: input.NoteID, Title: input.Title, BodyMarkdown: input.BodyMarkdown,
 			Category: input.Category, Tags: input.Tags,
+			Status: noteStatusFromString(input.Status),
 		}))
 		if err != nil {
 			return nil, NoteResult{}, mapRPCError("update_note", err)

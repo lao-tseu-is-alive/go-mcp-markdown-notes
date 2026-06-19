@@ -32,12 +32,12 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "Global flags:\n")
 		flag.PrintDefaults()
 		fmt.Fprintf(flag.CommandLine.Output(), "\nSubcommands:\n")
-		fmt.Fprintf(flag.CommandLine.Output(), "  create   Create a new note\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  create   Create a new note (flags: -title, -body, -category, -tags, -status)\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  get      Retrieve a note by ID\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  list     List recent notes\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  search   Search notes\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  tag      Add tags to a note\n")
-		fmt.Fprintf(flag.CommandLine.Output(), "  update   Update a note\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  update   Update a note (flags: -id, -title, -body, -category, -tags, -status)\n")
 	}
 
 	flag.Parse()
@@ -74,6 +74,7 @@ func main() {
 		body := fs.String("body", "", "Markdown content of the note (required)")
 		category := fs.String("category", "", "Category of the note")
 		tagsStr := fs.String("tags", "", "Comma-separated list of tags")
+		statusStr := fs.String("status", "", "Lifecycle status: draft, active, final, or archived")
 		fs.Parse(subArgs)
 
 		if *title == "" || *body == "" {
@@ -91,12 +92,22 @@ func main() {
 			}
 		}
 
-		resp, err := client.CreateNote(ctx, connect.NewRequest(&v1.CreateNoteRequest{
+		req := &v1.CreateNoteRequest{
 			Title:        *title,
 			BodyMarkdown: *body,
 			Category:     *category,
 			Tags:         tags,
-		}))
+		}
+		if *statusStr != "" {
+			st, err := parseNoteStatus(*statusStr)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+			req.Status = &st
+		}
+
+		resp, err := client.CreateNote(ctx, connect.NewRequest(req))
 		if err != nil {
 			printError(err, *format)
 			os.Exit(1)
@@ -213,6 +224,7 @@ func main() {
 		body := fs.String("body", "", "Updated body content")
 		category := fs.String("category", "", "Updated category")
 		tagsStr := fs.String("tags", "", "Comma-separated list of tags")
+		statusStr := fs.String("status", "", "Lifecycle status: draft, active, final, or archived")
 		fs.Parse(subArgs)
 
 		noteID := *id
@@ -246,6 +258,14 @@ func main() {
 		if hasTags {
 			req.Tags = tags
 		}
+		if *statusStr != "" {
+			st, err := parseNoteStatus(*statusStr)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+			req.Status = &st
+		}
 
 		resp, err := client.UpdateNote(ctx, connect.NewRequest(req))
 		if err != nil {
@@ -274,6 +294,9 @@ func printNoteText(note *v1.Note) {
 	if len(note.Tags) > 0 {
 		fmt.Printf("\033[1;36m| TAGS:\033[0m    \033[1;35m%-60s\033[0m \033[1;36m|\033[0m\n", strings.Join(note.Tags, ", "))
 	}
+	if st := noteStatusToString(note.Status); st != "" {
+		fmt.Printf("\033[1;36m| STATUS:\033[0m  \033[1;33m%-60s\033[0m \033[1;36m|\033[0m\n", st)
+	}
 	fmt.Printf("\033[1;36m| CREATED:\033[0m %-60s \033[1;36m|\033[0m\n", protoTimestampToString(note.CreatedAt))
 	fmt.Printf("\033[1;36m| UPDATED:\033[0m %-60s \033[1;36m|\033[0m\n", protoTimestampToString(note.UpdatedAt))
 	if note.OwnerUserId != "" {
@@ -290,13 +313,43 @@ func protoTimestampToString(ts *timestamppb.Timestamp) string {
 	return ts.AsTime().UTC().Format(time.RFC3339Nano)
 }
 
+func parseNoteStatus(s string) (v1.NoteStatus, error) {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "draft":
+		return v1.NoteStatus_NOTE_STATUS_DRAFT, nil
+	case "active":
+		return v1.NoteStatus_NOTE_STATUS_ACTIVE, nil
+	case "final":
+		return v1.NoteStatus_NOTE_STATUS_FINAL, nil
+	case "archived":
+		return v1.NoteStatus_NOTE_STATUS_ARCHIVED, nil
+	default:
+		return v1.NoteStatus_NOTE_STATUS_UNSPECIFIED, fmt.Errorf("unknown status %q: must be draft, active, final, or archived", s)
+	}
+}
+
+func noteStatusToString(s v1.NoteStatus) string {
+	switch s {
+	case v1.NoteStatus_NOTE_STATUS_DRAFT:
+		return "draft"
+	case v1.NoteStatus_NOTE_STATUS_ACTIVE:
+		return "active"
+	case v1.NoteStatus_NOTE_STATUS_FINAL:
+		return "final"
+	case v1.NoteStatus_NOTE_STATUS_ARCHIVED:
+		return "archived"
+	default:
+		return ""
+	}
+}
+
 func printNotesListText(notes []*v1.Note) {
 	if len(notes) == 0 {
 		fmt.Println("No notes found.")
 		return
 	}
-	fmt.Printf("\033[1;36m%-36s  %-30s  %-15s  %-20s\033[0m\n", "NOTE ID", "TITLE", "CATEGORY", "TAGS")
-	fmt.Println(strings.Repeat("-", 110))
+	fmt.Printf("\033[1;36m%-36s  %-30s  %-10s  %-15s  %-20s\033[0m\n", "NOTE ID", "TITLE", "STATUS", "CATEGORY", "TAGS")
+	fmt.Println(strings.Repeat("-", 120))
 	for _, n := range notes {
 		tags := strings.Join(n.Tags, ",")
 		if len(tags) > 20 {
@@ -310,7 +363,7 @@ func printNotesListText(notes []*v1.Note) {
 		if len(category) > 15 {
 			category = category[:12] + "..."
 		}
-		fmt.Printf("%-36s  %-30s  %-15s  %-20s\n", n.Id, title, category, tags)
+		fmt.Printf("%-36s  %-30s  %-10s  %-15s  %-20s\n", n.Id, title, noteStatusToString(n.Status), category, tags)
 	}
 	fmt.Println()
 }

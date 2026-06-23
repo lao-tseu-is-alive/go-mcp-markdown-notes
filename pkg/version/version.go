@@ -28,7 +28,7 @@ var (
 	Repository = "github.com/lao-tseu-is-alive/go-mcp-markdown-notes"
 
 	// Version starting point
-	Version = "0.0.4"
+	Version = "0.0.5"
 
 	// Revision is auto-filled by build (do not edit manually)
 	Revision = "unknown"

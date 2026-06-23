@@ -65,6 +65,17 @@ standalone server.
 `TokenVerifier` is the central interface. The `"notes:admin"` scope acts as a
 wildcard and satisfies any `HasScope` check.
 
+### `pkg/notesclient`
+
+Shared authenticated Connect client for the notes service. Both the MCP server
+(`pkg/mcpnotes`) and the CLI client (`cmd/notes-client`) use this to avoid
+duplicating bearer token injection logic.
+
+| File | Purpose |
+|------|---------|
+| `client.go` | `New()` + options (`WithHTTPClient`, `WithTimeout`) – creates an authenticated `notesv1connect.NotesServiceClient` |
+| `doc.go` | Package-level godoc |
+
 ### `pkg/mcpnotes`
 
 MCP stdio server that exposes note operations as tools for Claude Code and
@@ -73,7 +84,7 @@ Claude Desktop. Calls the notes server over Connect RPC using a bearer token.
 | File | Purpose |
 |------|---------|
 | `server.go` | MCP server setup and tool registration |
-| `client.go` | Authenticated Connect client for the notes service |
+| `client.go` | Thin wrapper around `pkg/notesclient` (preserves old API) |
 | `doc.go` | Package-level godoc |
 | `mcp_auth_design.md` | Auth design notes (PAT flow, caching, token rotation) |
 

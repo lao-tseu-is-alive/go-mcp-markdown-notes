@@ -18,6 +18,21 @@ const (
 )
 
 // Note is the transport-independent representation of a Markdown note.
+//
+// The `db` struct tags are used by pgx named scanning (RowToStructByNameLax) in
+// the repository. Keep them in sync with the column names/aliases produced by
+// the queries in sql.go (especially noteColumns and searchNoteColumns).
+//
+// When adding a persistent field:
+//  1. Add a migration (see pkg/notes/module/db/migrations)
+//  2. Add the column (with alias if needed) to noteColumns / searchNoteColumns
+//  3. Add the Go field here with `json` and `db` tags
+//  4. Update mappers.go (DomainNoteToProto / ProtoNoteToDomain)
+//  5. Handle the field in service.go (normalization, Create/UpdateInput) if user-visible
+//  6. Update any callers (ConnectServer, MCP inputs, notes-client, frontend)
+//
+// The proto definition (proto/notes/v1/notes.proto) is the contract for the wire API,
+// but the DB model and internal Note can (and sometimes must) diverge slightly.
 type Note struct {
 	ID           uuid.UUID  `json:"id" db:"id"`
 	OwnerUserID  int64      `json:"owner_user_id" db:"owner_user_id"`

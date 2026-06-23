@@ -10,17 +10,25 @@ Importable packages that are independent of any specific binary. Binaries under
 Core notes domain: types, repository interface, PostgreSQL implementation,
 service layer, Connect RPC handler, proto mappers, and domain errors.
 
+The RPC contract is defined in `proto/notes/v1/notes.proto` (generates code under `gen/`).
+The persistence layer (schema migrations, raw SQL, internal model) is maintained by hand
+but designed for low-friction evolution:
+
+- `pkg/notes/storage_postgres.go` uses `pgx/v5` **named struct scanning** (`RowTo*ByNameLax`, `Collect*`) driven by `db:"..."` tags on `Note`.
+- `noteColumns` / `searchNoteColumns` in `sql.go` + the `Note` struct (with `db` tags) are the main places that need updating when the table shape changes.
+- Full checklist + drift-detection tests (including `TestNoteDBTagsPresent`) are documented in the root [AGENTS.md](../AGENTS.md) ("Evolving the Proto / Note Contract" section) and exercised by `pkg/notes` tests.
+
 | File | Purpose |
 |------|---------|
-| `model.go` | Domain types (`Note`, `NoteFilter`) |
-| `repository.go` | `Repository` interface |
-| `storage_postgres.go` | PostgreSQL implementation using `pgx/v5` |
-| `sql.go` | SQL query constants |
-| `service.go` | Business rules, validation, tag normalisation |
-| `connect_server.go` | Connect RPC handler (`NotesServiceHandler`) |
-| `mappers.go` | Proto ↔ domain type converters |
-| `errors.go` | Sentinel errors (`ErrNotFound`, `ErrForbidden`, `ErrConflict`) |
-| `doc.go` | Package-level godoc |
+| `model.go` | Domain types (`Note`, `CreateNoteInput`, `UpdateNoteInput`, `SearchFilter`, `SearchResult`, `NoteStatus`) with `db` tags for named scanning |
+| `repository.go` | `Repository` interface (all methods are owner-scoped) |
+| `storage_postgres.go` | PostgreSQL implementation using `pgx/v5` + named struct scanning (`RowTo*ByNameLax` / `Collect*`) |
+| `sql.go` | SQL query constants and column projections (noteColumns, searchNoteColumns, DML) |
+| `service.go` | Business rules, input normalisation, tag handling, limits, validation |
+| `connect_server.go` | Connect RPC adapter (scope checks, error mapping, mappers) |
+| `mappers.go` | Converters between domain `Note` and generated `notesv1.Note` |
+| `errors.go` | Sentinel errors (`ErrInvalidInput`, `ErrNoteNotFound`, `ErrUnauthenticated`) |
+| `doc.go` | Package-level godoc (see root `AGENTS.md` for proto-evolution checklist) |
 
 ### `pkg/notes/module`
 

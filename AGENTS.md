@@ -108,6 +108,45 @@ repository.
   OpenAPI plugin.
 - Run `make lint` and relevant Go tests after regeneration.
 
+## Evolving the Proto / Note Contract (keeping layers in sync)
+
+`proto/notes/v1/notes.proto` is the contract for the public RPC API. Changing it
+automatically updates the generated client/server types via `make generate`.
+
+However, the following layers are **not** generated and must be updated manually:
+
+- Database schema: `pkg/notes/module/db/migrations/*.sql` (always add a new migration; never rewrite an applied one).
+- Raw SQL and column projections: `pkg/notes/sql.go` (noteColumns, searchNoteColumns, DML).
+- Internal domain model: `pkg/notes/model.go` (Note struct + *Input types + NoteStatus). The `db:"..."` tags power named scanning.
+- Mappers: `pkg/notes/mappers.go`.
+- Business rules + normalization: `pkg/notes/service.go` (when adding visible fields).
+- Repository scanning: `pkg/notes/storage_postgres.go` (now uses pgx named scanning via `RowTo*ByNameLax`, which relies on db tags).
+- Wire adapters: `pkg/notes/connect_server.go`.
+- MCP tools: `pkg/mcpnotes/server.go` (new Input structs + conversion).
+- Example client: `cmd/notes-client/`.
+- Frontend: `cmd/notes-server/notesFront/src/`.
+
+### Recommended checklist when adding a field to Note (or similar change)
+
+1. Edit `proto/notes/v1/notes.proto` (add to message + validation if appropriate).
+2. Run `make generate` + `make lint`.
+3. If the field is stored: add a new migration under `pkg/notes/module/db/migrations/`.
+4. Update `noteColumns` / `searchNoteColumns` and any affected SQL in `pkg/notes/sql.go`.
+5. Add the field + `json` + `db` tag to `Note` (and to Create/UpdateInput if user-supplied).
+6. Update `DomainNoteToProto` / `ProtoNoteToDomain` in `mappers.go`.
+7. Update normalization / validation / defaults in `service.go` if needed.
+8. Wire the field in `connect_server.go` (Create/Update paths).
+9. Update MCP tool inputs/outputs + conversion in `pkg/mcpnotes/`.
+10. Update `cmd/notes-client` flag handling + request building if the field is useful from CLI.
+11. Update tests (especially roundtrips in `pkg/notes/mappers_test.go` and any storage behavior tests).
+12. Run focused tests: `go test ./pkg/notes/... -run 'Note|Mapper|Proto|Round' -count=1`
+13. Run `make lint`.
+14. If you changed migrations, also update the expected statement count in `TestModuleParseDBMateUp_ParsesMigration` (in `pkg/notes/module/module_test.go`).
+
+Named scanning (introduced 2026) means you usually do **not** need to touch every `Scan(...)` call when adding columns — only the struct + SQL projection.
+
+See `pkg/notes/model.go` and `pkg/notes/sql.go` for more detailed comments.
+
 ## Database Migrations
 
 Migration SQL files live in exactly one place:

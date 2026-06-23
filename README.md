@@ -216,7 +216,7 @@ go-mcp-markdown-notes/
 │   ├── notes-client/       # CLI client example
 │   └── notes-mcp/          # MCP stdio server entry point (env: NOTES_SERVER, NOTES_TOKEN)
 ├── pkg/                    # Shared packages
-│   ├── notes/              # Notes business & repository layers
+│   ├── notes/              # Notes business & repository layers (pgx/v5 + named struct scanning via `db` tags)
 │   │   └── module/         # Importable domain module (bundle-ready); see Module & Bundle Strategy
 │   ├── authadapter/        # TokenVerifier abstraction: JWT, dev token, PAT introspection, composite
 │   ├── mcpnotes/           # MCP server (7 tools) + authenticated Connect client
@@ -310,6 +310,13 @@ The module owns the `notes` and `note_tags` tables under the `public` schema.
 `Migrate` creates a `schema_migrations` table (if absent) and uses a
 PostgreSQL advisory lock keyed to `'go-mcp-markdown-notes:migrations'` to
 prevent concurrent migration runs across instances.
+
+On the Go side, `pkg/notes` uses raw SQL (`pgx/v5`) with **named struct scanning**
+( `RowToStructByNameLax` / `CollectRows` etc.) driven by `db:"..."` tags on the
+internal `Note` model. This keeps schema evolution maintainable when you extend
+the proto contract or the tables. See `pkg/notes/sql.go`, `model.go`, and the
+"Evolving the Proto / Note Contract" section in `AGENTS.md` for the checklist
+and drift-detection tests.
 
 In bundle mode, each domain module runs `Migrate` independently against the
 shared pool; advisory lock keys must be unique per module to avoid deadlocks.

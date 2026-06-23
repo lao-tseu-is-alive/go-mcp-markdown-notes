@@ -1,5 +1,20 @@
 package notes
 
+// SQL query fragments for the notes repository.
+//
+// These are the single source for the column projections and DML used by PostgresRepository.
+// They are intentionally kept as raw SQL for full control over joins, window functions,
+// tag aggregation, and conflict handling.
+//
+// When evolving the Note (usually after a proto change):
+//  1. Add migration if the DB shape changes.
+//  2. Update the relevant SELECT/INSERT/UPDATE here (often just extend noteColumns).
+//  3. Add the field + `db:"col"` tag to the Note struct in model.go.
+//  4. Update mappers.go if the field must cross the proto boundary.
+//  5. Update service logic / validation if needed.
+//  6. The named struct scanning in storage_postgres.go usually requires no change.
+//
+// Named scanning (pgx.RowToStructByNameLax) matches result columns to struct fields via the `db` tag.
 const noteColumns = `
 n.id, n.owner_user_id, n.title, n.body_markdown, n.category, n.status,
 COALESCE(array_agg(nt.tag ORDER BY nt.tag) FILTER (WHERE nt.tag IS NOT NULL), ARRAY[]::text[]) AS tags,
@@ -12,7 +27,7 @@ COUNT(*) OVER() AS total_count`
 const createNoteSQL = `
 INSERT INTO notes (owner_user_id, title, body_markdown, category, status)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, owner_user_id, title, body_markdown, category, status, created_at, updated_at;`
+RETURNING id;`
 
 const insertTagSQL = `
 INSERT INTO note_tags (note_id, owner_user_id, tag)

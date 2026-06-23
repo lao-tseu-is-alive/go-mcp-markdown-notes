@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -13,6 +14,10 @@ import (
 )
 
 // PostgresRepository implements Repository with pgx.
+//
+// Row scanning for Note uses pgx named scanning (RowToStructByNameLax /
+// RowToAddrOfStructByNameLax + CollectRows). See scanNote, collectNotes,
+// collectSearchResults and the `db` tags on the Note struct.
 type PostgresRepository struct {
 	pool *pgxpool.Pool
 	log  *slog.Logger
@@ -36,24 +41,34 @@ func (r *PostgresRepository) CreateNote(ctx context.Context, ownerUserID int64, 
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	note := &Note{Tags: append([]string(nil), input.Tags...)}
-	err = tx.QueryRow(ctx, createNoteSQL, ownerUserID, input.Title, input.BodyMarkdown, input.Category, input.Status).Scan(
-		&note.ID, &note.OwnerUserID, &note.Title, &note.BodyMarkdown, &note.Category, &note.Status, &note.CreatedAt, &note.UpdatedAt,
-	)
-	if err != nil {
+	var id uuid.UUID
+	if err := tx.QueryRow(ctx, createNoteSQL, ownerUserID, input.Title, input.BodyMarkdown, input.Category, input.Status).Scan(&id); err != nil {
 		return nil, fmt.Errorf("create note: %w", err)
 	}
-	if err := insertTags(ctx, tx, ownerUserID, note.ID, input.Tags); err != nil {
+	if err := insertTags(ctx, tx, ownerUserID, id, input.Tags); err != nil {
 		return nil, err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("commit create note: %w", err)
 	}
-	return note, nil
+	// Re-read via the normal path so the returned note always includes the full
+	// denormalized tags and any future columns. This also keeps CreateNote in sync
+	// with GetNote without duplicating scan logic.
+	return r.GetNote(ctx, ownerUserID, id)
 }
 
 func (r *PostgresRepository) GetNote(ctx context.Context, ownerUserID int64, noteID uuid.UUID) (*Note, error) {
-	return scanNote(r.pool.QueryRow(ctx, getNoteSQL, ownerUserID, noteID))
+	rows, err := r.pool.Query(ctx, getNoteSQL, ownerUserID, noteID)
+	if err != nil {
+		return nil, fmt.Errorf("get note query: %w", err)
+	}
+	// Use CollectOneRow + named scanning so GetNote benefits from the same
+	// maintainability as list/search (db tags drive field mapping).
+	note, err := pgx.CollectOneRow(rows, pgx.RowToAddrOfStructByNameLax[Note])
+	if err != nil {
+		return nil, mapNotFound(err)
+	}
+	return note, nil
 }
 
 func (r *PostgresRepository) ListRecentNotes(ctx context.Context, ownerUserID int64, limit int) ([]*Note, error) {
@@ -148,47 +163,55 @@ func insertTags(ctx context.Context, q execer, ownerUserID int64, noteID uuid.UU
 	return nil
 }
 
-func scanNote(row pgx.Row) (*Note, error) {
-	note := &Note{}
-	err := row.Scan(&note.ID, &note.OwnerUserID, &note.Title, &note.BodyMarkdown, &note.Category, &note.Status, &note.Tags, &note.CreatedAt, &note.UpdatedAt)
-	if err != nil {
-		return nil, mapNotFound(err)
-	}
-	return note, nil
-}
-
-// collectNotes drains the rows cursor into a slice, closing the cursor even on error.
+// collectNotes uses pgx named scanning to drain rows into Note structs.
+// The cursor is closed even on error.
 func collectNotes(rows pgx.Rows) ([]*Note, error) {
 	defer rows.Close()
-	notes := make([]*Note, 0)
-	for rows.Next() {
-		note, err := scanNote(rows)
-		if err != nil {
-			return nil, err
-		}
-		notes = append(notes, note)
-	}
-	if err := rows.Err(); err != nil {
+	notes, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByNameLax[Note])
+	if err != nil {
 		return nil, fmt.Errorf("read notes: %w", err)
 	}
 	return notes, nil
 }
 
-// collectSearchResults drains search rows into a SearchResult, picking up the window-function total count.
+// searchRow augments the note fields with the window aggregate from search queries.
+// We duplicate the fields (instead of embedding) for reliable named scanning.
+type searchRow struct {
+	ID           uuid.UUID  `db:"id"`
+	OwnerUserID  int64      `db:"owner_user_id"`
+	Title        string     `db:"title"`
+	BodyMarkdown string     `db:"body_markdown"`
+	Category     string     `db:"category"`
+	Status       NoteStatus `db:"status"`
+	Tags         []string   `db:"tags"`
+	CreatedAt    time.Time  `db:"created_at"`
+	UpdatedAt    time.Time  `db:"updated_at"`
+	TotalSize    int32      `db:"total_count"`
+}
+
+// collectSearchResults uses named scanning for the Note part + the total count.
+// All rows carry the same total_size (from COUNT(*) OVER()).
 func collectSearchResults(rows pgx.Rows) (SearchResult, error) {
 	defer rows.Close()
-	result := SearchResult{Notes: make([]*Note, 0)}
-	for rows.Next() {
-		note := &Note{}
-		var totalCount int32
-		if err := rows.Scan(&note.ID, &note.OwnerUserID, &note.Title, &note.BodyMarkdown, &note.Category, &note.Status, &note.Tags, &note.CreatedAt, &note.UpdatedAt, &totalCount); err != nil {
-			return SearchResult{}, mapNotFound(err)
-		}
-		result.Notes = append(result.Notes, note)
-		result.TotalSize = totalCount
-	}
-	if err := rows.Err(); err != nil {
+	rowsData, err := pgx.CollectRows(rows, pgx.RowToStructByNameLax[searchRow])
+	if err != nil {
 		return SearchResult{}, fmt.Errorf("read notes: %w", err)
+	}
+	result := SearchResult{Notes: make([]*Note, len(rowsData))}
+	for i := range rowsData {
+		r := rowsData[i]
+		result.Notes[i] = &Note{
+			ID:           r.ID,
+			OwnerUserID:  r.OwnerUserID,
+			Title:        r.Title,
+			BodyMarkdown: r.BodyMarkdown,
+			Category:     r.Category,
+			Status:       r.Status,
+			Tags:         r.Tags,
+			CreatedAt:    r.CreatedAt,
+			UpdatedAt:    r.UpdatedAt,
+		}
+		result.TotalSize = r.TotalSize
 	}
 	return result, nil
 }

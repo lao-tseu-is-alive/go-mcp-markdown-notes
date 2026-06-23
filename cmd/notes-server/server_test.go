@@ -201,7 +201,7 @@ func TestPublicHandlers(t *testing.T) {
 		handler http.HandlerFunc
 		status  int
 	}{
-		{name: "health", handler: healthHandler, status: http.StatusOK},
+		{name: "health", handler: healthHandler(nil), status: http.StatusOK},
 		{name: "app info", handler: appInfoHandler, status: http.StatusOK},
 	}
 	for _, test := range tests {

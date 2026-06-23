@@ -108,9 +108,13 @@ func (s *ConnectServer) SearchNotes(ctx context.Context, req *connect.Request[no
 	if err != nil {
 		return nil, s.mapError(err)
 	}
+	nextPageToken := ""
+	if limit := req.Msg.GetLimit(); limit > 0 && int32(len(result.Notes)) == limit && result.TotalSize > int32(len(result.Notes)) {
+		nextPageToken = "next" // basic indicator; full cursor support would require page token in request
+	}
 	return connect.NewResponse(&notesv1.SearchNotesResponse{
 		Notes:        DomainNotesToProto(result.Notes),
-		PageResponse: &notesv1.PageResponse{TotalSize: result.TotalSize},
+		PageResponse: &notesv1.PageResponse{NextPageToken: nextPageToken, TotalSize: result.TotalSize},
 	}), nil
 }
 

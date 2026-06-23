@@ -13,6 +13,7 @@ import (
 	"runtime/debug"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/lao-tseu-is-alive/go-cloud-k8s-common-libs/pkg/goHttpEcho"
 	"github.com/lao-tseu-is-alive/go-mcp-markdown-notes/pkg/authadapter"
@@ -74,7 +75,7 @@ func newApplication(ctx context.Context, config serverConfig, log *slog.Logger) 
 	if err := mod.RegisterRoutes(mux); err != nil {
 		return nil, fmt.Errorf("register notes routes: %w", err)
 	}
-	mux.HandleFunc("GET /health", healthHandler)
+	mux.Handle("GET /health", healthHandler(pool))
 	mux.HandleFunc("GET /readiness", readinessHandler(pool))
 	mux.HandleFunc("GET /goAppInfo", appInfoHandler)
 	mux.HandleFunc("GET /config", frontendConfigHandler(config))
@@ -90,7 +91,7 @@ func newApplication(ctx context.Context, config serverConfig, log *slog.Logger) 
 	cleanup = false
 	return &application{
 		pool:    pool,
-		handler: recoverMiddleware(log, requestLogMiddleware(log, mux)),
+		handler: recoverMiddleware(log, requestIDMiddleware(requestLogMiddleware(log, mux))),
 		log:     log,
 	}, nil
 }
@@ -192,8 +193,19 @@ func (a *application) serve(ctx context.Context, listener net.Listener, shutdown
 	}
 }
 
-func healthHandler(writer http.ResponseWriter, _ *http.Request) {
-	writeJSON(writer, http.StatusOK, map[string]string{"status": "ok"})
+func healthHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(writer http.ResponseWriter, _ *http.Request) {
+		resp := map[string]any{"status": "ok"}
+		if pool != nil {
+			stat := pool.Stat()
+			resp["db"] = map[string]any{
+				"acquired_conns": stat.AcquiredConns(),
+				"total_conns":    stat.TotalConns(),
+				"max_conns":      stat.MaxConns(),
+			}
+		}
+		writeJSON(writer, http.StatusOK, resp)
+	}
 }
 
 // readinessHandler returns 503 when the database pool cannot be reached within 2 seconds, used by Kubernetes readiness probes.
@@ -237,12 +249,46 @@ func writeJSON(writer http.ResponseWriter, status int, value any) {
 	_ = json.NewEncoder(writer).Encode(value)
 }
 
+type requestIDKey struct{}
+
+// requestIDMiddleware ensures every request has an X-Request-ID (generates one if missing)
+// and stores it in the request context.
+func requestIDMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		id := request.Header.Get("X-Request-ID")
+		if id == "" {
+			id = uuid.NewString()
+		}
+		writer.Header().Set("X-Request-ID", id)
+		ctx := context.WithValue(request.Context(), requestIDKey{}, id)
+		next.ServeHTTP(writer, request.WithContext(ctx))
+	})
+}
+
+// requestIDFromContext returns the request ID from context, if present.
+func requestIDFromContext(ctx context.Context) string {
+	if id, ok := ctx.Value(requestIDKey{}).(string); ok {
+		return id
+	}
+	return ""
+}
+
 // requestLogMiddleware logs the HTTP method, path, and elapsed time for every request.
 func requestLogMiddleware(log *slog.Logger, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		started := time.Now()
 		next.ServeHTTP(writer, request)
-		log.Info("HTTP request", "method", request.Method, "path", request.URL.Path, "duration", time.Since(started))
+		userID := ""
+		if u, err := authadapter.RequireUser(request.Context()); err == nil {
+			userID = fmt.Sprintf("%d", u.AppUserID)
+		}
+		log.Info("HTTP request",
+			"method", request.Method,
+			"path", request.URL.Path,
+			"request_id", requestIDFromContext(request.Context()),
+			"user_id", userID,
+			"duration", time.Since(started),
+		)
 	})
 }
 
@@ -251,7 +297,7 @@ func recoverMiddleware(log *slog.Logger, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		defer func() {
 			if recovered := recover(); recovered != nil {
-				log.Error("HTTP panic", "panic", recovered, "stack", string(debug.Stack()))
+				log.Error("HTTP panic", "panic", recovered, "request_id", requestIDFromContext(request.Context()), "stack", string(debug.Stack()))
 				writeJSON(writer, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 			}
 		}()

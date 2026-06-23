@@ -16,6 +16,9 @@ const (
 	MaxTitleLength = 200
 	// MaxBodyLength is the maximum number of Unicode code points allowed in a note body.
 	MaxBodyLength = 200_000
+	// MaxCategoryLength is the maximum number of Unicode code points allowed in a note category.
+	// This matches the validation in proto/notes/v1/notes.proto.
+	MaxCategoryLength = 100
 	// MaxTags is the maximum number of tags a single note may carry.
 	MaxTags = 20
 	// MaxTagLength is the maximum number of Unicode code points allowed in one tag.
@@ -102,6 +105,9 @@ func (s *Service) SearchNotes(ctx context.Context, ownerUserID int64, filter Sea
 	limit, err := normalizeLimit(filter.Limit)
 	if err != nil {
 		return SearchResult{}, err
+	}
+	if filter.Offset < 0 {
+		filter.Offset = 0
 	}
 	tags, err := normalizeTags(filter.Tags)
 	if err != nil {
@@ -219,6 +225,9 @@ func normalizeNoteFields(title, body, category string, tags []string) (string, s
 	}
 	if utf8.RuneCountInString(body) > MaxBodyLength {
 		return "", "", "", nil, fmt.Errorf("%w: body_markdown exceeds %d characters", ErrInvalidInput, MaxBodyLength)
+	}
+	if utf8.RuneCountInString(category) > MaxCategoryLength {
+		return "", "", "", nil, fmt.Errorf("%w: category exceeds %d characters", ErrInvalidInput, MaxCategoryLength)
 	}
 	normalizedTags, err := normalizeTags(tags)
 	if err != nil {

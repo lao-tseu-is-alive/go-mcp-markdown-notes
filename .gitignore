@@ -36,5 +36,6 @@ proto_third_party/*
 /how_to_add_mcp_to_claude.txt
 /.ogcode/ogcode.db
 reports/
+notes-server
 notes-client
 notes-mcp

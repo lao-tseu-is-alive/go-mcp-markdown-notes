@@ -69,6 +69,7 @@ type SearchFilter struct {
 	Tags     []string
 	Category string
 	Limit    int
+	Offset   int
 }
 
 // SearchResult holds the matching notes and the total count before pagination.

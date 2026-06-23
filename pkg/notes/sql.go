@@ -48,7 +48,7 @@ LEFT JOIN note_tags nt ON nt.note_id = n.id AND nt.owner_user_id = n.owner_user_
 WHERE n.owner_user_id = $1
 GROUP BY n.id
 ORDER BY n.updated_at DESC
-LIMIT $2;`
+LIMIT $2 OFFSET $3;`
 
 const searchNotesSQL = `
 SELECT ` + searchNoteColumns + `
@@ -68,7 +68,7 @@ WHERE n.owner_user_id = $1
   ))
 GROUP BY n.id
 ORDER BY n.updated_at DESC
-LIMIT $5;`
+LIMIT $5 OFFSET $6;`
 
 const updateNoteSQL = `
 UPDATE notes

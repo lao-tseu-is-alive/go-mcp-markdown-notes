@@ -493,11 +493,14 @@ func (x *ListRecentNotesResponse) GetNotes() []*Note {
 }
 
 type SearchNotesRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Query         string                 `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
-	Tags          []string               `protobuf:"bytes,2,rep,name=tags,proto3" json:"tags,omitempty"`
-	Category      string                 `protobuf:"bytes,3,opt,name=category,proto3" json:"category,omitempty"`
-	Limit         *int32                 `protobuf:"varint,4,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Query    string                 `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
+	Tags     []string               `protobuf:"bytes,2,rep,name=tags,proto3" json:"tags,omitempty"`
+	Category string                 `protobuf:"bytes,3,opt,name=category,proto3" json:"category,omitempty"`
+	Limit    *int32                 `protobuf:"varint,4,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
+	// Opaque pagination cursor. Pass the next_page_token from a prior SearchNotes
+	// response to fetch the following page. Encodes a zero-based result offset.
+	PageToken     *string `protobuf:"bytes,5,opt,name=page_token,json=pageToken,proto3,oneof" json:"page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -558,6 +561,13 @@ func (x *SearchNotesRequest) GetLimit() int32 {
 		return *x.Limit
 	}
 	return 0
+}
+
+func (x *SearchNotesRequest) GetPageToken() string {
+	if x != nil && x.PageToken != nil {
+		return *x.PageToken
+	}
+	return ""
 }
 
 type SearchNotesResponse struct {
@@ -1067,14 +1077,17 @@ const file_notes_v1_notes_proto_rawDesc = "" +
 	"\x16ListRecentNotesRequest\x12\x1f\n" +
 	"\x05limit\x18\x01 \x01(\x05B\t\xbaH\x06\x1a\x04\x18d(\x00R\x05limit\"?\n" +
 	"\x17ListRecentNotesResponse\x12$\n" +
-	"\x05notes\x18\x01 \x03(\v2\x0e.notes.v1.NoteR\x05notes\"\xa7\x01\n" +
+	"\x05notes\x18\x01 \x03(\v2\x0e.notes.v1.NoteR\x05notes\"\xe4\x01\n" +
 	"\x12SearchNotesRequest\x12\x1e\n" +
 	"\x05query\x18\x01 \x01(\tB\b\xbaH\x05r\x03\x18\xf4\x03R\x05query\x12\x1c\n" +
 	"\x04tags\x18\x02 \x03(\tB\b\xbaH\x05\x92\x01\x02\x10\n" +
 	"R\x04tags\x12#\n" +
 	"\bcategory\x18\x03 \x01(\tB\a\xbaH\x04r\x02\x18dR\bcategory\x12$\n" +
-	"\x05limit\x18\x04 \x01(\x05B\t\xbaH\x06\x1a\x04\x18d(\x00H\x00R\x05limit\x88\x01\x01B\b\n" +
-	"\x06_limit\"x\n" +
+	"\x05limit\x18\x04 \x01(\x05B\t\xbaH\x06\x1a\x04\x18d(\x00H\x00R\x05limit\x88\x01\x01\x12,\n" +
+	"\n" +
+	"page_token\x18\x05 \x01(\tB\b\xbaH\x05r\x03\x18\x80\bH\x01R\tpageToken\x88\x01\x01B\b\n" +
+	"\x06_limitB\r\n" +
+	"\v_page_token\"x\n" +
 	"\x13SearchNotesResponse\x12$\n" +
 	"\x05notes\x18\x01 \x03(\v2\x0e.notes.v1.NoteR\x05notes\x12;\n" +
 	"\rpage_response\x18\x02 \x01(\v2\x16.notes.v1.PageResponseR\fpageResponse\"\xc5\x01\n" +

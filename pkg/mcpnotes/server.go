@@ -124,10 +124,11 @@ type ListRecentNotesInput struct {
 }
 
 type SearchNotesInput struct {
-	Query    string   `json:"query,omitempty" jsonschema:"text searched in title and body"`
-	Tags     []string `json:"tags,omitempty" jsonschema:"notes must carry all of these tags"`
-	Category string   `json:"category,omitempty" jsonschema:"exact category filter"`
-	Limit    int      `json:"limit,omitempty" jsonschema:"maximum number of notes to return (default 10, max 100)"`
+	Query     string   `json:"query,omitempty" jsonschema:"text searched in title and body"`
+	Tags      []string `json:"tags,omitempty" jsonschema:"notes must carry all of these tags"`
+	Category  string   `json:"category,omitempty" jsonschema:"exact category filter"`
+	Limit     int      `json:"limit,omitempty" jsonschema:"maximum number of notes to return (default 10, max 100)"`
+	PageToken string   `json:"page_token,omitempty" jsonschema:"pagination cursor from a prior search_notes response"`
 }
 
 type AddTagsInput struct {
@@ -221,8 +222,12 @@ func NewServer(client notesv1connect.NotesServiceClient, version string) (*mcp.S
 			l := int32(input.Limit)
 			limitPtr = &l
 		}
+		var pageTokenPtr *string
+		if input.PageToken != "" {
+			pageTokenPtr = &input.PageToken
+		}
 		res, err := client.SearchNotes(ctx, connect.NewRequest(&notesv1.SearchNotesRequest{
-			Query: input.Query, Tags: input.Tags, Category: input.Category, Limit: limitPtr,
+			Query: input.Query, Tags: input.Tags, Category: input.Category, Limit: limitPtr, PageToken: pageTokenPtr,
 		}))
 		if err != nil {
 			return nil, NotesResult{}, mapRPCError("search_notes", err)

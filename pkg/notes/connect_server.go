@@ -102,19 +102,23 @@ func (s *ConnectServer) SearchNotes(ctx context.Context, req *connect.Request[no
 	if err != nil {
 		return nil, err
 	}
+	offset, err := ParsePageToken(req.Msg.GetPageToken())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
 	result, err := s.service.SearchNotes(ctx, ownerUserID, SearchFilter{
-		Query: req.Msg.Query, Tags: req.Msg.Tags, Category: req.Msg.Category, Limit: int(req.Msg.GetLimit()),
+		Query: req.Msg.Query, Tags: req.Msg.Tags, Category: req.Msg.Category,
+		Limit: int(req.Msg.GetLimit()), Offset: offset,
 	})
 	if err != nil {
 		return nil, s.mapError(err)
 	}
-	nextPageToken := ""
-	if limit := req.Msg.GetLimit(); limit > 0 && int32(len(result.Notes)) == limit && result.TotalSize > int32(len(result.Notes)) {
-		nextPageToken = "next" // basic indicator; full cursor support would require page token in request
-	}
 	return connect.NewResponse(&notesv1.SearchNotesResponse{
-		Notes:        DomainNotesToProto(result.Notes),
-		PageResponse: &notesv1.PageResponse{NextPageToken: nextPageToken, TotalSize: result.TotalSize},
+		Notes: DomainNotesToProto(result.Notes),
+		PageResponse: &notesv1.PageResponse{
+			NextPageToken: NextSearchPageToken(offset, result),
+			TotalSize:     result.TotalSize,
+		},
 	}), nil
 }
 

@@ -171,6 +171,10 @@ message SearchNotesRequest {
     (buf.validate.field).int32.gte = 0,
     (buf.validate.field).int32.lte = 100
   ];
+
+  // Opaque pagination cursor. Pass the next_page_token from a prior SearchNotes
+  // response to fetch the following page. Encodes a zero-based result offset.
+  optional string page_token = 5 [(buf.validate.field).string.max_len = 1024];
 }
 
 message SearchNotesResponse {

@@ -178,6 +178,60 @@ func TestConnectServerSearchNotes(t *testing.T) {
 	assertConnectCode(t, err, connect.CodePermissionDenied)
 }
 
+func TestConnectServerSearchNotesPageToken(t *testing.T) {
+	repository := &searchPageRepository{
+		recordingRepository: recordingRepository{note: &Note{ID: uuid.New(), OwnerUserID: 71}},
+		result: SearchResult{
+			Notes: []*Note{
+				{ID: uuid.New(), OwnerUserID: 71},
+				{ID: uuid.New(), OwnerUserID: 71},
+			},
+			TotalSize: 5,
+		},
+	}
+	service := newTestService(t, repository)
+	server, _ := NewConnectServer(service, nil)
+	ctx := authadapter.ContextWithUser(context.Background(), &authadapter.AuthenticatedUser{AppUserID: 71, Scopes: []string{ScopeRead}})
+
+	pageToken := "2"
+	limit := int32(2)
+	resp, err := server.SearchNotes(ctx, connect.NewRequest(&notesv1.SearchNotesRequest{
+		Query: "x", Limit: &limit, PageToken: &pageToken,
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if repository.search.Offset != 2 {
+		t.Fatalf("search offset = %d, want 2", repository.search.Offset)
+	}
+	if resp.Msg.PageResponse.NextPageToken != "4" {
+		t.Fatalf("next_page_token = %q, want 4", resp.Msg.PageResponse.NextPageToken)
+	}
+	if resp.Msg.PageResponse.TotalSize != 5 {
+		t.Fatalf("total_size = %d, want 5", resp.Msg.PageResponse.TotalSize)
+	}
+}
+
+func TestConnectServerSearchNotesRejectsInvalidPageToken(t *testing.T) {
+	service := newTestService(t, &recordingRepository{})
+	server, _ := NewConnectServer(service, nil)
+	ctx := authadapter.ContextWithUser(context.Background(), &authadapter.AuthenticatedUser{AppUserID: 71, Scopes: []string{ScopeRead}})
+
+	badToken := "not-a-number"
+	_, err := server.SearchNotes(ctx, connect.NewRequest(&notesv1.SearchNotesRequest{PageToken: &badToken}))
+	assertConnectCode(t, err, connect.CodeInvalidArgument)
+}
+
+type searchPageRepository struct {
+	recordingRepository
+	result SearchResult
+}
+
+func (r *searchPageRepository) SearchNotes(_ context.Context, ownerUserID int64, filter SearchFilter) (SearchResult, error) {
+	r.recordingRepository.SearchNotes(context.Background(), ownerUserID, filter)
+	return r.result, r.err
+}
+
 func TestConnectServerAddTags(t *testing.T) {
 	noteID := uuid.New()
 	repository := &recordingRepository{note: &Note{ID: noteID, OwnerUserID: 71, Tags: []string{"go"}}}

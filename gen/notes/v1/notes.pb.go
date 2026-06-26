@@ -405,8 +405,10 @@ func (x *GetNoteResponse) GetNote() *Note {
 }
 
 type ListRecentNotesRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Limit         int32                  `protobuf:"varint,1,opt,name=limit,proto3" json:"limit,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Limit int32                  `protobuf:"varint,1,opt,name=limit,proto3" json:"limit,omitempty"`
+	// Opaque pagination cursor. Pass next_page_token from a prior response.
+	PageToken     *string `protobuf:"bytes,2,opt,name=page_token,json=pageToken,proto3,oneof" json:"page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -448,9 +450,17 @@ func (x *ListRecentNotesRequest) GetLimit() int32 {
 	return 0
 }
 
+func (x *ListRecentNotesRequest) GetPageToken() string {
+	if x != nil && x.PageToken != nil {
+		return *x.PageToken
+	}
+	return ""
+}
+
 type ListRecentNotesResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Notes         []*Note                `protobuf:"bytes,1,rep,name=notes,proto3" json:"notes,omitempty"`
+	PageResponse  *PageResponse          `protobuf:"bytes,2,opt,name=page_response,json=pageResponse,proto3" json:"page_response,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -488,6 +498,13 @@ func (*ListRecentNotesResponse) Descriptor() ([]byte, []int) {
 func (x *ListRecentNotesResponse) GetNotes() []*Note {
 	if x != nil {
 		return x.Notes
+	}
+	return nil
+}
+
+func (x *ListRecentNotesResponse) GetPageResponse() *PageResponse {
+	if x != nil {
+		return x.PageResponse
 	}
 	return nil
 }
@@ -1073,11 +1090,15 @@ const file_notes_v1_notes_proto_rawDesc = "" +
 	"\x0eGetNoteRequest\x12\x1b\n" +
 	"\x02id\x18\x01 \x01(\tB\v\xe0A\x02\xbaH\x05r\x03\xb0\x01\x01R\x02id\"5\n" +
 	"\x0fGetNoteResponse\x12\"\n" +
-	"\x04note\x18\x01 \x01(\v2\x0e.notes.v1.NoteR\x04note\"9\n" +
+	"\x04note\x18\x01 \x01(\v2\x0e.notes.v1.NoteR\x04note\"v\n" +
 	"\x16ListRecentNotesRequest\x12\x1f\n" +
-	"\x05limit\x18\x01 \x01(\x05B\t\xbaH\x06\x1a\x04\x18d(\x00R\x05limit\"?\n" +
+	"\x05limit\x18\x01 \x01(\x05B\t\xbaH\x06\x1a\x04\x18d(\x00R\x05limit\x12,\n" +
+	"\n" +
+	"page_token\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x18\x80\bH\x00R\tpageToken\x88\x01\x01B\r\n" +
+	"\v_page_token\"|\n" +
 	"\x17ListRecentNotesResponse\x12$\n" +
-	"\x05notes\x18\x01 \x03(\v2\x0e.notes.v1.NoteR\x05notes\"\xe4\x01\n" +
+	"\x05notes\x18\x01 \x03(\v2\x0e.notes.v1.NoteR\x05notes\x12;\n" +
+	"\rpage_response\x18\x02 \x01(\v2\x16.notes.v1.PageResponseR\fpageResponse\"\xe4\x01\n" +
 	"\x12SearchNotesRequest\x12\x1e\n" +
 	"\x05query\x18\x01 \x01(\tB\b\xbaH\x05r\x03\x18\xf4\x03R\x05query\x12\x1c\n" +
 	"\x04tags\x18\x02 \x03(\tB\b\xbaH\x05\x92\x01\x02\x10\n" +
@@ -1186,30 +1207,31 @@ var file_notes_v1_notes_proto_depIdxs = []int32{
 	1,  // 4: notes.v1.CreateNoteResponse.note:type_name -> notes.v1.Note
 	1,  // 5: notes.v1.GetNoteResponse.note:type_name -> notes.v1.Note
 	1,  // 6: notes.v1.ListRecentNotesResponse.notes:type_name -> notes.v1.Note
-	1,  // 7: notes.v1.SearchNotesResponse.notes:type_name -> notes.v1.Note
-	17, // 8: notes.v1.SearchNotesResponse.page_response:type_name -> notes.v1.PageResponse
-	1,  // 9: notes.v1.AddTagsResponse.note:type_name -> notes.v1.Note
-	0,  // 10: notes.v1.UpdateNoteRequest.status:type_name -> notes.v1.NoteStatus
-	1,  // 11: notes.v1.UpdateNoteResponse.note:type_name -> notes.v1.Note
-	2,  // 12: notes.v1.NotesService.CreateNote:input_type -> notes.v1.CreateNoteRequest
-	4,  // 13: notes.v1.NotesService.GetNote:input_type -> notes.v1.GetNoteRequest
-	6,  // 14: notes.v1.NotesService.ListRecentNotes:input_type -> notes.v1.ListRecentNotesRequest
-	8,  // 15: notes.v1.NotesService.SearchNotes:input_type -> notes.v1.SearchNotesRequest
-	10, // 16: notes.v1.NotesService.AddTags:input_type -> notes.v1.AddTagsRequest
-	12, // 17: notes.v1.NotesService.UpdateNote:input_type -> notes.v1.UpdateNoteRequest
-	14, // 18: notes.v1.NotesService.DeleteNote:input_type -> notes.v1.DeleteNoteRequest
-	3,  // 19: notes.v1.NotesService.CreateNote:output_type -> notes.v1.CreateNoteResponse
-	5,  // 20: notes.v1.NotesService.GetNote:output_type -> notes.v1.GetNoteResponse
-	7,  // 21: notes.v1.NotesService.ListRecentNotes:output_type -> notes.v1.ListRecentNotesResponse
-	9,  // 22: notes.v1.NotesService.SearchNotes:output_type -> notes.v1.SearchNotesResponse
-	11, // 23: notes.v1.NotesService.AddTags:output_type -> notes.v1.AddTagsResponse
-	13, // 24: notes.v1.NotesService.UpdateNote:output_type -> notes.v1.UpdateNoteResponse
-	15, // 25: notes.v1.NotesService.DeleteNote:output_type -> notes.v1.DeleteNoteResponse
-	19, // [19:26] is the sub-list for method output_type
-	12, // [12:19] is the sub-list for method input_type
-	12, // [12:12] is the sub-list for extension type_name
-	12, // [12:12] is the sub-list for extension extendee
-	0,  // [0:12] is the sub-list for field type_name
+	17, // 7: notes.v1.ListRecentNotesResponse.page_response:type_name -> notes.v1.PageResponse
+	1,  // 8: notes.v1.SearchNotesResponse.notes:type_name -> notes.v1.Note
+	17, // 9: notes.v1.SearchNotesResponse.page_response:type_name -> notes.v1.PageResponse
+	1,  // 10: notes.v1.AddTagsResponse.note:type_name -> notes.v1.Note
+	0,  // 11: notes.v1.UpdateNoteRequest.status:type_name -> notes.v1.NoteStatus
+	1,  // 12: notes.v1.UpdateNoteResponse.note:type_name -> notes.v1.Note
+	2,  // 13: notes.v1.NotesService.CreateNote:input_type -> notes.v1.CreateNoteRequest
+	4,  // 14: notes.v1.NotesService.GetNote:input_type -> notes.v1.GetNoteRequest
+	6,  // 15: notes.v1.NotesService.ListRecentNotes:input_type -> notes.v1.ListRecentNotesRequest
+	8,  // 16: notes.v1.NotesService.SearchNotes:input_type -> notes.v1.SearchNotesRequest
+	10, // 17: notes.v1.NotesService.AddTags:input_type -> notes.v1.AddTagsRequest
+	12, // 18: notes.v1.NotesService.UpdateNote:input_type -> notes.v1.UpdateNoteRequest
+	14, // 19: notes.v1.NotesService.DeleteNote:input_type -> notes.v1.DeleteNoteRequest
+	3,  // 20: notes.v1.NotesService.CreateNote:output_type -> notes.v1.CreateNoteResponse
+	5,  // 21: notes.v1.NotesService.GetNote:output_type -> notes.v1.GetNoteResponse
+	7,  // 22: notes.v1.NotesService.ListRecentNotes:output_type -> notes.v1.ListRecentNotesResponse
+	9,  // 23: notes.v1.NotesService.SearchNotes:output_type -> notes.v1.SearchNotesResponse
+	11, // 24: notes.v1.NotesService.AddTags:output_type -> notes.v1.AddTagsResponse
+	13, // 25: notes.v1.NotesService.UpdateNote:output_type -> notes.v1.UpdateNoteResponse
+	15, // 26: notes.v1.NotesService.DeleteNote:output_type -> notes.v1.DeleteNoteResponse
+	20, // [20:27] is the sub-list for method output_type
+	13, // [13:20] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_notes_v1_notes_proto_init() }
@@ -1218,6 +1240,7 @@ func file_notes_v1_notes_proto_init() {
 		return
 	}
 	file_notes_v1_notes_proto_msgTypes[1].OneofWrappers = []any{}
+	file_notes_v1_notes_proto_msgTypes[5].OneofWrappers = []any{}
 	file_notes_v1_notes_proto_msgTypes[7].OneofWrappers = []any{}
 	file_notes_v1_notes_proto_msgTypes[11].OneofWrappers = []any{}
 	type x struct{}

@@ -230,12 +230,12 @@ func TestPostgresRepository_ListRecentNotes(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	recent, err := repo.ListRecentNotes(context.Background(), ownerID, 10)
+	recent, err := repo.ListRecentNotes(context.Background(), ownerID, 10, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(recent) < 2 || recent[0].ID != older.ID {
-		t.Fatalf("recent order = %v, want %s first", noteIDs(recent), older.ID)
+	if len(recent.Notes) < 2 || recent.Notes[0].ID != older.ID {
+		t.Fatalf("recent order = %v, want %s first", noteIDs(recent.Notes), older.ID)
 	}
 	_ = newer
 }

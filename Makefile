@@ -36,8 +36,8 @@ run-server: run
 
 .PHONY: build-frontend
 build-frontend:
-	@echo "  >  Type-checking and building frontend assets using Bun..."
-	cd cmd/notes-server/notesFront && bun run typecheck && bun run build
+	@echo "  >  Type-checking, testing, and building frontend assets using Bun..."
+	cd cmd/notes-server/notesFront && bun run typecheck && bun run test && bun run build
 
 run: generate build-frontend mod-download
 	go run $(LDFLAGS) ./cmd/$(APP_EXECUTABLE)
@@ -100,10 +100,16 @@ lint:
 	buf lint
 
 .PHONY: lint-frontend
-## lint-frontend:	will run TypeScript type checking for the frontend (bun run typecheck)
+## lint-frontend:	will run TypeScript type checking and unit tests for the frontend
 lint-frontend:
-	@echo "  >  Type-checking frontend with TypeScript..."
-	cd cmd/notes-server/notesFront && bun run typecheck
+	@echo "  >  Type-checking and testing frontend..."
+	cd cmd/notes-server/notesFront && bun run typecheck && bun run test
+
+.PHONY: test-frontend
+## test-frontend:	will run frontend unit tests (bun test)
+test-frontend:
+	@echo "  >  Running frontend unit tests..."
+	cd cmd/notes-server/notesFront && bun run test
 
 .PHONY: fmt
 ## fmt:	will format all Go source files

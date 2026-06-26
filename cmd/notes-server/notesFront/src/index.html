@@ -644,6 +644,28 @@
             background: rgba(255, 255, 255, 0.3);
         }
 
+        .notes-pagination {
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.25rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .notes-pagination .btn-secondary:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
+        #notes-page-info {
+            flex: 1;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
         @media (max-width: 720px) {
             h1 {
                 font-size: 2rem;
@@ -666,6 +688,10 @@
             }
 
             .note-actions {
+                flex-wrap: wrap;
+            }
+
+            .notes-pagination {
                 flex-wrap: wrap;
             }
         }
@@ -891,6 +917,12 @@
                         <span style="font-size: 2.5rem; display: block; margin-bottom: 0.5rem;">📂</span>
                         No notes fetched yet. Click "Fetch Notes" or run a search.
                     </div>
+                </div>
+
+                <div id="notes-pagination" class="notes-pagination">
+                    <button type="button" id="btn-notes-prev" class="btn-secondary">Previous</button>
+                    <span id="notes-page-info"></span>
+                    <button type="button" id="btn-notes-next" class="btn-secondary">Next</button>
                 </div>
             </div>
         </section>

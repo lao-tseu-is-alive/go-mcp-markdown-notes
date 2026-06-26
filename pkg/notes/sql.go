@@ -42,7 +42,7 @@ WHERE n.owner_user_id = $1 AND n.id = $2
 GROUP BY n.id;`
 
 const listRecentNotesSQL = `
-SELECT ` + noteColumns + `
+SELECT ` + searchNoteColumns + `
 FROM notes n
 LEFT JOIN note_tags nt ON nt.note_id = n.id AND nt.owner_user_id = n.owner_user_id
 WHERE n.owner_user_id = $1

@@ -71,12 +71,12 @@ func (r *PostgresRepository) GetNote(ctx context.Context, ownerUserID int64, not
 	return note, nil
 }
 
-func (r *PostgresRepository) ListRecentNotes(ctx context.Context, ownerUserID int64, limit int) ([]*Note, error) {
-	rows, err := r.pool.Query(ctx, listRecentNotesSQL, ownerUserID, limit, 0)
+func (r *PostgresRepository) ListRecentNotes(ctx context.Context, ownerUserID int64, limit int, offset int) (SearchResult, error) {
+	rows, err := r.pool.Query(ctx, listRecentNotesSQL, ownerUserID, limit, offset)
 	if err != nil {
-		return nil, fmt.Errorf("list recent notes: %w", err)
+		return SearchResult{}, fmt.Errorf("list recent notes: %w", err)
 	}
-	return collectNotes(rows)
+	return collectSearchResults(rows)
 }
 
 func (r *PostgresRepository) SearchNotes(ctx context.Context, ownerUserID int64, filter SearchFilter) (SearchResult, error) {

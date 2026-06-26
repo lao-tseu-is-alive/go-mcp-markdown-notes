@@ -89,11 +89,21 @@ func (s *ConnectServer) ListRecentNotes(ctx context.Context, req *connect.Reques
 	if err != nil {
 		return nil, err
 	}
-	items, err := s.service.ListRecentNotes(ctx, ownerUserID, int(req.Msg.Limit))
+	offset, err := ParsePageToken(req.Msg.GetPageToken())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	result, err := s.service.ListRecentNotes(ctx, ownerUserID, int(req.Msg.Limit), offset)
 	if err != nil {
 		return nil, s.mapError(err)
 	}
-	return connect.NewResponse(&notesv1.ListRecentNotesResponse{Notes: DomainNotesToProto(items)}), nil
+	return connect.NewResponse(&notesv1.ListRecentNotesResponse{
+		Notes: DomainNotesToProto(result.Notes),
+		PageResponse: &notesv1.PageResponse{
+			NextPageToken: NextSearchPageToken(offset, result),
+			TotalSize:     result.TotalSize,
+		},
+	}), nil
 }
 
 // SearchNotes validates the caller's read scope and forwards the filter to Service.SearchNotes.

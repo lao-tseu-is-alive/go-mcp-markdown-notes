@@ -11,7 +11,7 @@ import (
 type Repository interface {
 	CreateNote(ctx context.Context, ownerUserID int64, input CreateNoteInput) (*Note, error)
 	GetNote(ctx context.Context, ownerUserID int64, noteID uuid.UUID) (*Note, error)
-	ListRecentNotes(ctx context.Context, ownerUserID int64, limit int) ([]*Note, error)
+	ListRecentNotes(ctx context.Context, ownerUserID int64, limit int, offset int) (SearchResult, error)
 	SearchNotes(ctx context.Context, ownerUserID int64, filter SearchFilter) (SearchResult, error)
 	AddTags(ctx context.Context, ownerUserID int64, noteID uuid.UUID, tags []string) (*Note, error)
 	UpdateNote(ctx context.Context, ownerUserID int64, noteID uuid.UUID, input UpdateNoteInput) (*Note, error)

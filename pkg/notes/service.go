@@ -82,19 +82,22 @@ func (s *Service) GetNote(ctx context.Context, ownerUserID int64, noteID uuid.UU
 }
 
 // ListRecentNotes returns the most recently updated notes for the owner, capped at MaxLimit.
-func (s *Service) ListRecentNotes(ctx context.Context, ownerUserID int64, limit int) ([]*Note, error) {
+func (s *Service) ListRecentNotes(ctx context.Context, ownerUserID int64, limit int, offset int) (SearchResult, error) {
 	if err := validateOwner(ownerUserID); err != nil {
-		return nil, err
+		return SearchResult{}, err
 	}
 	limit, err := normalizeLimit(limit)
 	if err != nil {
-		return nil, err
+		return SearchResult{}, err
 	}
-	notes, err := s.repository.ListRecentNotes(ctx, ownerUserID, limit)
+	if offset < 0 {
+		offset = 0
+	}
+	result, err := s.repository.ListRecentNotes(ctx, ownerUserID, limit, offset)
 	if err != nil {
-		return nil, fmt.Errorf("list recent notes: %w", err)
+		return SearchResult{}, fmt.Errorf("list recent notes: %w", err)
 	}
-	return notes, nil
+	return result, nil
 }
 
 // SearchNotes filters notes by free-text query, category, and tags for the given owner.

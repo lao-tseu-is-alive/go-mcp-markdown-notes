@@ -7,6 +7,7 @@
     "dev": "bun build src/main.ts --outdir dist --watch",
     "build": "bun run build.ts",
     "typecheck": "tsc --noEmit",
+    "test": "bun test src/lib",
     "clean": "rm -rf dist"
   },
   "devDependencies": {

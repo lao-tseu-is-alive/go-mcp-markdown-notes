@@ -17,6 +17,7 @@ type recordingRepository struct {
 	addedTags   []string
 	search      SearchFilter
 	limit       int
+	listOffset  int
 	deletedID   uuid.UUID
 	note        *Note
 	err         error
@@ -30,9 +31,9 @@ func (r *recordingRepository) GetNote(_ context.Context, ownerUserID int64, _ uu
 	r.ownerUserID = ownerUserID
 	return r.note, r.err
 }
-func (r *recordingRepository) ListRecentNotes(_ context.Context, ownerUserID int64, limit int) ([]*Note, error) {
-	r.ownerUserID, r.limit = ownerUserID, limit
-	return []*Note{r.note}, r.err
+func (r *recordingRepository) ListRecentNotes(_ context.Context, ownerUserID int64, limit int, offset int) (SearchResult, error) {
+	r.ownerUserID, r.limit, r.listOffset = ownerUserID, limit, offset
+	return SearchResult{Notes: []*Note{r.note}}, r.err
 }
 func (r *recordingRepository) SearchNotes(_ context.Context, ownerUserID int64, filter SearchFilter) (SearchResult, error) {
 	r.ownerUserID, r.search = ownerUserID, filter
@@ -109,7 +110,7 @@ func TestServiceRejectsInvalidNoteInput(t *testing.T) {
 
 func TestServiceRequiresAuthenticatedOwner(t *testing.T) {
 	service := newTestService(t, &recordingRepository{})
-	_, err := service.ListRecentNotes(context.Background(), 0, 10)
+	_, err := service.ListRecentNotes(context.Background(), 0, 10, 0)
 	if !errors.Is(err, ErrUnauthenticated) {
 		t.Fatalf("error = %v, want ErrUnauthenticated", err)
 	}
@@ -119,7 +120,7 @@ func TestServiceEnforcesAndDefaultsLimits(t *testing.T) {
 	repository := &recordingRepository{note: &Note{ID: uuid.New()}}
 	service := newTestService(t, repository)
 
-	if _, err := service.ListRecentNotes(context.Background(), 7, 0); err != nil {
+	if _, err := service.ListRecentNotes(context.Background(), 7, 0, 0); err != nil {
 		t.Fatal(err)
 	}
 	if repository.limit != DefaultLimit {
